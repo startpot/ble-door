@@ -11,9 +11,19 @@ extern uint8_t 	key_length_set;
 
 extern char key_express_value;
 
-#define KEY_NUMBER		8
+#define KEY_NUMBER		12
 extern char 	key_input[KEY_NUMBER];
 extern uint8_t 	key_input_site;
+
+//输入的密码的hex
+extern uint32_t key_input_check;
+extern struct tm key_input_time_tm;
+extern time_t key_input_time_t;
+//对比动态密码的变量
+extern uint8_t key_store_tmp[4];
+extern uint32_t key_store_number_check;
+extern struct key_store_struct key_store_check;
+
 extern struct door_open_record		open_record_now;
 
 

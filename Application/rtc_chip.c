@@ -105,12 +105,12 @@ void rtc_init(void)
 	printf("rtc:pcf85163 init success\r\n");
 }
 
-static uint8_t hex_2_bcd(int value)
+static uint8_t hex_2_bcd(uint8_t value)
 {
 	return (((value/10)<<4) | (value%10));
 }
 
-static int bcd_2_hex(int value)
+static uint8_t bcd_2_hex(uint8_t value)
 {
 	return (((value & 0xf0)>>4)*10 + (value & 0x0f));
 }
@@ -147,7 +147,7 @@ uint8_t	rtc_time_write(struct tm *time_write)
 	rtc_i2c_device_write_byte(PCF85163_Years_ADDR, byte_write);
 	//使能RTC
 	rtc_i2c_device_write_byte(PCF85163_Timer_control_ADDR, 0x83);
-	printf("rtc time set:%4dyear%2d month%2dday%2d:%2d:%2d\r\n",\
+	printf("rtc time set:%4d-%2d-%2d %2d:%2d:%2d\r\n",\
 			time_write->tm_year +1990, time_write->tm_mon + 1, \
 			time_write->tm_mday, time_write->tm_hour, \
 			time_write->tm_min, time_write->tm_sec);
@@ -177,7 +177,7 @@ uint8_t rtc_time_read(struct tm *time_read)
 	time_read->tm_mon = bcd_2_hex(0x1f & byte_read[5]) - 1;
 	//写入年
 	time_read->tm_year = bcd_2_hex(0xff & byte_read[6]) + 10;
-	printf("rtc time read:%4dyear%2dmonth%2dday%2d:%2d:%2d\r\n",\
+	printf("rtc time read:%4d-%2d-%2d %2d:%2d:%2d\r\n",\
 			time_read->tm_year +1990, time_read->tm_mon + 1, \
 			time_read->tm_mday, time_read->tm_hour, \
 			time_read->tm_min, time_read->tm_sec);

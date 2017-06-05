@@ -7,7 +7,7 @@
 
 /*************RTC-CHIPµÄµØÖ·*********/
 
-#define RTC_CHIP_DEVICE_ADDR			0xA2	//ÔÝ¶¨
+#define RTC_CHIP_DEVICE_ADDR			0xA2	
 #define RTC_CHIP_REAL_ADDR 	(RTC_CHIP_DEVICE_ADDR>>1)
 
 #define RTC_CHIP_IIC_SCL_PIN	RTC_IIC_SCL_PIN

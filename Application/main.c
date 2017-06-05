@@ -63,10 +63,7 @@ int main(void)
 	
 	printf("***ble door controller***");
 	printf("\r\n");
-	
-	//初始化所有参数
-	set_default_params();
-	
+		
 	timers_init();
 	//初始化协议栈
 	ble_stack_init();
@@ -74,12 +71,12 @@ int main(void)
 	gap_params_init();
 	services_init();
 	advertising_init();
-	mac_set();
 	conn_params_init();
-   
 	
 	//初始化内部flash
 	flash_init();
+	//初始化所有参数
+	set_default_params();
 	//初始化灯，拉高，灭
 	leds_init();
 	//初始化电机

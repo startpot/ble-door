@@ -4,10 +4,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-extern uint32_t 	BEEP_DIDI_NUMBER;
-extern uint32_t 	LED_LIGHT_TIME;
-extern uint32_t		DOOR_OPEN_HOLD_TIME;
+#include "pstorage.h"
 
+extern pstorage_handle_t block_id_params;
+extern uint8_t flash_store_params[8];
+
+extern uint8_t 	BEEP_DIDI_NUMBER;
+extern uint8_t 	LED_LIGHT_TIME;
+extern uint8_t	DOOR_OPEN_HOLD_TIME;
+extern uint8_t	KEY_CHECK_NUMBER;
+extern uint8_t key_length_set;
 
 
 void set_default_params(void);

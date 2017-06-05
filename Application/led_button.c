@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "boards.h"
@@ -33,6 +34,16 @@ char key_express_value;
 //输入按键值，当作输入密码
 char key_input[KEY_NUMBER];
 uint8_t key_input_site;
+
+//输入的密码的hex
+uint32_t key_input_check;
+struct tm key_input_time_tm;
+time_t key_input_time_t;
+//对比动态密码的变量
+uint8_t key_store_tmp[4];
+uint32_t key_store_number_check;
+struct key_store_struct key_store_check;
+
 
 //开锁记录全局变量
 struct door_open_record		open_record_now;
@@ -202,34 +213,68 @@ static void check_key_express(char express_value)
 			leds_on(LED_12, LED_LIGHT_TIME);
 			printf("button open pressed\r\n");
 			clear_all_key_flag();
-			//如果按键数量和设置的密码数一致
-			if(key_input_site == key_length_set)
+			//将输入的密码变换为hex
+			for(int i=0; i<key_input_site; i++)
 			{
-				printf("door open button express,check all numbers expressed\r\n");
-				for(int i =0; i<key_length_set; i++)
+				key_input_check = key_input_check + (key_input[i]*pow(10,(key_input_site -1 -i)));
+			}
+			rtc_time_read(&key_input_time_tm);
+			key_input_time_t = mktime(&key_input_time_tm);
+			//计算现时的动态密码
+	
+			
+			
+			//如果按键数量和设置超级密码一致
+			if(key_input_site == SUPER_KEY_LENGTH)
+			{
+				printf("it is spuer key\r\n");
+				inter_flash_read(flash_read_data, 16, SPUER_KEY_OFFSET, &block_id_flash_store);
+				
+				if(flash_read_data[0] == 0x77)
 				{
-					if(key_input[i] != key_store_set[i])
+					for(int i =0; i<12; i++)
 					{
-						door_open = false;
-						goto check_fail;
+						if(key_input[i] != flash_read_data[i+1])
+						{
+							door_open = false;
+							goto check_door_open;
+						}
+						else
+							door_open = true;
 					}
-					else
-						door_open = true;
+				
+check_door_open:		
+					if(door_open == true)
+					{
+						ble_door_open();
+						printf("door open\r\n");
+					}
 				}
-				if(door_open == true)
+			}
+			else if(key_input_site == key_length_set)
+			{
+				//动态密码
+				//
+				inter_flash_read(key_store_tmp, 4, KEY_STORE_OFFSET, &block_id_flash_store);
+				key_store_number_check = ((int)key_store_tmp[0] | (int)key_store_tmp[1]<<8 |\
+										   (int)key_store_tmp[2]<<16 | (int)key_store_tmp[3]<<24);
+				for(int i=0; i<key_store_number_check;i++)
 				{
-					ble_door_open();
-					printf("door ope\r\n");
-					//记录开锁
-					rtc_time_read(&(open_record_now.door_open_time));
-					//记录开锁的密码
-					memset(open_record_now.key_store, 0, 10);
-					memcpy(open_record_now.key_store, key_input, key_input_site);
-					record_write(&open_record_now);
+					inter_flash_read((uint8_t *)&key_store_check, 8, (KEY_STORE_OFFSET+1+i),\
+												&block_id_flash_store);
+					
+					//读出密码后，自证密码的有效性
+					
+					if(key_input_check == key_store_check.key_store)
+					{
+						ble_door_open();
+						printf("door open\r\n");
+					}
+						
 				}
 			}
 			
-check_fail:
+
 			clear_key_expressed();
 			printf("clear all express button\r\n");
 			break;

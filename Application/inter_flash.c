@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include <string.h>
+
 #include "bsp.h"
 #include "pstorage.h"
 #include "app_error.h"
@@ -6,12 +8,18 @@
 #include "inter_flash.h"
 
 pstorage_handle_t	block_id_flash_store;
+pstorage_handle_t	block_id_key_store;
+pstorage_handle_t	block_id_record;
 
-uint8_t				next_block_id_site;
 pstorage_handle_t	block_id_dest;
 
-uint32_t				key_store_length;
-uint32_t				record_length;
+uint8_t	flash_write_data[BLOCK_STORE_SIZE];
+uint8_t	flash_read_data[BLOCK_STORE_SIZE];
+
+uint8_t	super_key[SUPER_KEY_LENGTH];
+
+uint32_t	key_store_length;
+uint32_t	record_length;
 
 
 bool key_store_full;
@@ -69,20 +77,22 @@ void flash_init(void)
 	printf("pstorage register: name:block_id_flash_store.\r\n" );
 	printf("it has %i blocks and block size is %i \r\n",\
 			module_param_key_store.block_count, module_param_key_store.block_size);
+	
+	
 	//写钥匙记录条数为0
-	err_code = pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_dest);
+	err_code = pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_flash_store);
 	APP_ERROR_CHECK(err_code);
 	key_store_length = 0x00000000;
-	err_code = pstorage_clear(&block_id_dest,64);
+	err_code = pstorage_clear(&block_id_flash_store,BLOCK_STORE_SIZE);
 	APP_ERROR_CHECK(err_code);
-	err_code = pstorage_store(&block_id_dest, (uint8_t *)&key_store_length, 4, 0);
+	err_code = pstorage_store(&block_id_flash_store, (uint8_t *)&key_store_length, 4, 0);
 	APP_ERROR_CHECK(err_code);
 	printf("flash_init, key_store length set %d\r\n", key_store_length);
 	//写开门记录条数为0
-	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_dest);
+	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_record);
 	record_length = 0x0;
-	pstorage_clear(&block_id_dest,64);
-	pstorage_store(&block_id_dest, (uint8_t *)&record_length, 4, 0);
+	pstorage_clear(&block_id_record,BLOCK_STORE_SIZE);
+	pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
 	printf("flash init, record length set %d\r\n", record_length);
 	
 	printf("flash init success \r\n");
@@ -97,7 +107,7 @@ void inter_flash_write(uint8_t *p_data, uint32_t data_len,\
 	//获取需要存储的位置
 	pstorage_block_identifier_get(block_id_write, block_id_offset, &block_id_dest);
 	//清除当前存储区域
-	pstorage_clear(&block_id_dest, 64);
+	pstorage_clear(&block_id_dest, 16);
 	pstorage_store(&block_id_dest, p_data, (pstorage_size_t)data_len, 0);
 	printf("%2d byte data have been store in flash offset:%i\r\n", data_len, block_id_offset);
 }
@@ -112,6 +122,23 @@ void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
 	pstorage_load(p_data, &block_id_dest, (pstorage_size_t)data_len, 0);
 	printf("%2d byte data have been read in flash offset:%i\r\n", data_len, block_id_offset);
 }
+
+/*********************************
+*写入管理员秘钥(12位ASCII)
+**********************************/
+void write_super_key(uint8_t *p_data)
+{	
+	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)SPUER_KEY_OFFSET, &block_id_dest);
+	pstorage_clear(&block_id_dest,BLOCK_STORE_SIZE);
+	pstorage_store(&block_id_dest, p_data, 16, 0);
+	printf("super key write:");
+	for(int i=0; i<SUPER_KEY_LENGTH; i++)
+	{
+		printf("%c ",p_data[i+1]);
+	}
+	printf("\r\n");
+}
+
 
 /********************************
 *将钥匙存储在flash中
