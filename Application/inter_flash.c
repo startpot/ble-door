@@ -6,8 +6,10 @@
 #include "app_error.h"
 
 #include "inter_flash.h"
+#include "ble_init.h"
 
 pstorage_handle_t	block_id_flash_store;
+pstorage_handle_t	block_id_device_name;
 pstorage_handle_t	block_id_key_store;
 pstorage_handle_t	block_id_record;
 
@@ -16,15 +18,13 @@ pstorage_handle_t	block_id_dest;
 uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 uint8_t	flash_read_data[BLOCK_STORE_SIZE];
 
-uint8_t	super_key[SUPER_KEY_LENGTH];
+char	super_key[SUPER_KEY_LENGTH];
 
 uint32_t	key_store_length;
 uint32_t	record_length;
 
-
 bool key_store_full;
 bool record_full;
-
 
 static void my_cb(pstorage_block_t *handle, uint8_t op_code, uint32_t result, uint8_t *p_data, uint32_t data_len)
 {
@@ -58,130 +58,148 @@ static void my_cb(pstorage_block_t *handle, uint8_t op_code, uint32_t result, ui
 }
 
 /******************************
-*³õÊ¼»¯ÄÚ²¿flash¿Õ¼ä
+*åˆå§‹åŒ–å†…éƒ¨flashç©ºé—´
 ******************************/
 void flash_init(void)
 {
 	uint32_t err_code;
 	
-	pstorage_init(); //³õÊ¼»¯flash²Ù×÷
+	pstorage_init(); //åˆå§‹åŒ–flashæ“ä½œ
 	
-	//³õÊ¼»¯key_storeµÄ¿Õ¼ä
+	//åˆå§‹åŒ–key_storeçš„ç©ºé—´
 	pstorage_module_param_t module_param_key_store;
-	module_param_key_store.block_count = BLOCK_STORE_COUNT;//ÉêÇë11¸ö¿é
-	module_param_key_store.block_size = BLOCK_STORE_SIZE; //Ã¿¿é´óĞ¡64byte ×î³¤µÄÔ¿³×½á¹¹ÌåÎª60byte
+	module_param_key_store.block_count = BLOCK_STORE_COUNT;//ç”³è¯· BLOCK_STORE_COUNT ä¸ªå—
+	module_param_key_store.block_size = BLOCK_STORE_SIZE; //æ¯å—å¤§å° BLOCK_STORE_SIZE bytes
 	module_param_key_store.cb = (pstorage_ntf_cb_t)my_cb;
 	
 	err_code = pstorage_register(&module_param_key_store, &block_id_flash_store);
 	APP_ERROR_CHECK(err_code);
-	printf("pstorage register: name:block_id_flash_store.\r\n" );
+#if defined(BLE_DOOR_DEBUG)
+	printf("flash name:block_id_flash_store.\r\n" );
 	printf("it has %i blocks and block size is %i \r\n",\
 			module_param_key_store.block_count, module_param_key_store.block_size);
+#endif
 	
+	//å–è®¾ç½®çš„device_name
+	err_code =pstorage_block_identifier_get(&block_id_flash_store, \
+						(pstorage_size_t)DEVICE_NAME_OFFSET, &block_id_device_name);
+	APP_ERROR_CHECK(err_code);
+	err_code = pstorage_load(device_name,&block_id_device_name,DEVICE_NAME_SIZE,0);
+	APP_ERROR_CHECK(err_code);
 	
-	//Ğ´Ô¿³×¼ÇÂ¼ÌõÊıÎª0
-	err_code = pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_flash_store);
+	//å†™é’¥åŒ™è®°å½•æ¡æ•°ä¸º0
+	err_code = pstorage_block_identifier_get(&block_id_flash_store, \
+						(pstorage_size_t)KEY_STORE_OFFSET, &block_id_flash_store);
 	APP_ERROR_CHECK(err_code);
 	key_store_length = 0x00000000;
 	err_code = pstorage_clear(&block_id_flash_store,BLOCK_STORE_SIZE);
 	APP_ERROR_CHECK(err_code);
 	err_code = pstorage_store(&block_id_flash_store, (uint8_t *)&key_store_length, 4, 0);
 	APP_ERROR_CHECK(err_code);
-	printf("flash_init, key_store length set %d\r\n", key_store_length);
-	//Ğ´¿ªÃÅ¼ÇÂ¼ÌõÊıÎª0
+#if defined(BLE_DOOR_DEBUG)
+	printf("key_store length set %d\r\n", key_store_length);
+#endif
+	//å†™å¼€é—¨è®°å½•æ¡æ•°ä¸º0
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_record);
 	record_length = 0x0;
 	pstorage_clear(&block_id_record,BLOCK_STORE_SIZE);
 	pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
-	printf("flash init, record length set %d\r\n", record_length);
+#if defined(BLE_DOOR_DEBUG)
+	printf("record length set %d\r\n", record_length);
 	
 	printf("flash init success \r\n");
+#endif
 }
 
 /*******************************************
-*´æ´¢µ½flash
+*å­˜å‚¨åˆ°flash
 ********************************************/
 void inter_flash_write(uint8_t *p_data, uint32_t data_len,\
 					   pstorage_size_t block_id_offset, pstorage_handle_t *block_id_write)
 {	
-	//»ñÈ¡ĞèÒª´æ´¢µÄÎ»ÖÃ
+	//è·å–éœ€è¦å­˜å‚¨çš„ä½ç½®
 	pstorage_block_identifier_get(block_id_write, block_id_offset, &block_id_dest);
-	//Çå³ıµ±Ç°´æ´¢ÇøÓò
-	pstorage_clear(&block_id_dest, 16);
+	//æ¸…é™¤å½“å‰å­˜å‚¨åŒºåŸŸ
+	pstorage_clear(&block_id_dest, BLOCK_STORE_SIZE);
 	pstorage_store(&block_id_dest, p_data, (pstorage_size_t)data_len, 0);
-	printf("%2d byte data have been store in flash offset:%i\r\n", data_len, block_id_offset);
+#if defined(BLE_DOOR_DEBUG)
+	printf("%2d bytes store in flash offset:%i\r\n", data_len, block_id_offset);
+#endif
 }
 
 /**********************************
-*½«flashÖĞµÄÊı¾İ¶Á³öÀ´
+*å°†flashä¸­çš„æ•°æ®è¯»å‡ºæ¥
 ***********************************/
 void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
 					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read)
 {
 	pstorage_block_identifier_get(block_id_read, (pstorage_size_t)block_id_offset, &block_id_dest);
 	pstorage_load(p_data, &block_id_dest, (pstorage_size_t)data_len, 0);
-	printf("%2d byte data have been read in flash offset:%i\r\n", data_len, block_id_offset);
+#if defined(BLE_DOOR_DEBUG)
+	printf("%2d bytes read in flash offset:%i\r\n", data_len, block_id_offset);
+#endif
 }
 
 /*********************************
-*Ğ´Èë¹ÜÀíÔ±ÃØÔ¿(12Î»ASCII)
+*å†™å…¥ç®¡ç†å‘˜ç§˜é’¥(12ä½ASCII)
 **********************************/
 void write_super_key(uint8_t *p_data)
 {	
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)SPUER_KEY_OFFSET, &block_id_dest);
 	pstorage_clear(&block_id_dest,BLOCK_STORE_SIZE);
 	pstorage_store(&block_id_dest, p_data, 16, 0);
+#if defined(BLE_DOOR_DEBUG)
 	printf("super key write:");
 	for(int i=0; i<SUPER_KEY_LENGTH; i++)
 	{
 		printf("%c ",p_data[i+1]);
 	}
 	printf("\r\n");
+#endif
 }
 
-
 /********************************
-*½«Ô¿³×´æ´¢ÔÚflashÖĞ
+*å°†é’¥åŒ™å­˜å‚¨åœ¨flashä¸­
 ********************************/
-void key_store_write(struct key_store_struct *key_input)
+void key_store_write(struct key_store_struct *key_store_input)
 {
-	//Ğ´¼ÇÂ¼ÌõÊı
+	//å†™è®°å½•æ¡æ•°
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_dest);
 	pstorage_load((uint8_t *)&key_store_length, &block_id_dest, 4, 0);
 	if(key_store_length > KEY_STORE_NUMBER)
-	{//´ïµ½¼ÇÂ¼ÉÏÏŞ
+	{//è¾¾åˆ°è®°å½•ä¸Šé™
 		key_store_length = 0x1;
-		pstorage_clear(&block_id_dest, 64);
+		pstorage_clear(&block_id_dest, 4);
 		pstorage_store(&block_id_dest, (uint8_t *)&key_store_length, 4, 0);
 		key_store_full = true;
 	}
 	else
-	{//Î´´ïµ½¼ÇÂ¼ÉÏÏŞ
+	{//æœªè¾¾åˆ°è®°å½•ä¸Šé™
 		key_store_length++;
-		pstorage_clear(&block_id_dest, 64);
+		pstorage_clear(&block_id_dest, 4);
 		pstorage_store(&block_id_dest, (uint8_t *)&key_store_length, 4, 0);
 	}
-	inter_flash_write((uint8_t *)key_input, sizeof(struct key_store_struct), \
+	inter_flash_write((uint8_t *)key_store_input, sizeof(struct key_store_struct), \
 						(pstorage_size_t)(KEY_STORE_OFFSET + key_store_length), &block_id_flash_store);
 }
 
 /****************************
-*½«¼ÇÂ¼´æ´¢ÔÚflashÖĞ
+*å°†è®°å½•å­˜å‚¨åœ¨flashä¸­
 ****************************/
 void record_write(struct door_open_record *open_record)
 {
-	//Ğ´¼ÇÂ¼ÌõÊı
+	//å†™è®°å½•æ¡æ•°
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_dest);
 	pstorage_load((uint8_t *)&record_length, &block_id_dest, 4, 0);
 	if(record_length > RECORD_NUMBER)
-	{//´ïµ½¼ÇÂ¼ÉÏÏŞ
+	{//è¾¾åˆ°è®°å½•ä¸Šé™
 		record_length = 0x1;
 		pstorage_clear(&block_id_dest, 64);
 		pstorage_store(&block_id_dest, (uint8_t *)&record_length, 4, 0);	
 		record_full = true;
 	}
 	else
-	{//Î´´ïµ½¼ÇÂ¼ÉÏÏŞ
+	{//æœªè¾¾åˆ°è®°å½•ä¸Šé™
 		record_length++;
 		pstorage_clear(&block_id_dest, 64);
 		pstorage_store(&block_id_dest, (uint8_t *)&record_length, 4, 0);

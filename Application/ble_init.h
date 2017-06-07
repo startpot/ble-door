@@ -15,21 +15,22 @@
 #define IS_SRVC_CHANGED_CHARACT_PRESENT 0                                           /**< Include the service_changed characteristic. If not enabled, the server's database cannot be changed for the lifetime of the device. */
 
 
-//ÒÔÏÂ2¸ö±äÁ¿»á¾ö¶¨SDµÄÔËÐÐ¿Õ¼ä(app_ram_base.hÓÐ¶¨Òå)£¬´Ó¶ø¾ö¶¨±àÒëµÄÊ±ºò£¬APPµÄÔËÐÐ¿Õ¼äÉèÖÃ
+//ä»¥ä¸‹2ä¸ªå˜é‡ä¼šå†³å®šSDçš„è¿è¡Œç©ºé—´(app_ram_base.hæœ‰å®šä¹‰)ï¼Œä»Žè€Œå†³å®šç¼–è¯‘çš„æ—¶å€™ï¼ŒAPPçš„è¿è¡Œç©ºé—´è®¾ç½®
 #define CENTRAL_LINK_COUNT              0                                           /**<number of central links used by the application. When changing this number remember to adjust the RAM settings*/
 #define PERIPHERAL_LINK_COUNT           1                                           /**<number of peripheral links used by the application. When changing this number remember to adjust the RAM settings*/
 
-#define DEVICE_NAME                     "Nordic_UART"          	//À¶ÑÀÉè±¸Ãû³Æ£¬À¶ÑÀ¹ã²¥¸øÆäËûÉè±¸µÄÃû×Ö
-#define MANUFACTURER_NAME               "NordicSemiconductor"   //Éè±¸ÖÆÔìÉÌ£¬Will be passed to Device Information Service             
-#define MODEL_NUMBER                   	"nRF51"                 // ÐÍºÅ×Ö·û´®. Will be passed to Device Information Service.
-#define MANUFACTURER_ID                	0x55AA55AA55           	//Éè±¸ÖÆÔìÉÌID(¿ÉÐÞ¸ÄÎª×Ô¼ºµÄ). Will be passed to Device Information Service.
-#define ORG_UNIQUE_ID                  	0xEEBBEE               	//BLE×éÖ¯ÁªÃËÖÐÎ¨Ò»µÄID. Will be passed to Device Information Service
+#define DEVICE_NAME                     "tecsheild_door"          	//è“ç‰™è®¾å¤‡åç§°ï¼Œè“ç‰™å¹¿æ’­ç»™å…¶ä»–è®¾å¤‡çš„åå­—
+#define DEVICE_NAME_SIZE			20 //åç§°æœ€é•¿20 -2å­—èŠ‚
+#define MANUFACTURER_NAME               "NordicSemiconductor"   //è®¾å¤‡åˆ¶é€ å•†ï¼ŒWill be passed to Device Information Service             
+#define MODEL_NUMBER                   	"nRF51"                 // åž‹å·å­—ç¬¦ä¸². Will be passed to Device Information Service.
+#define MANUFACTURER_ID                	0x55AA55AA55           	//è®¾å¤‡åˆ¶é€ å•†ID(å¯ä¿®æ”¹ä¸ºè‡ªå·±çš„). Will be passed to Device Information Service.
+#define ORG_UNIQUE_ID                  	0xEEBBEE               	//BLEç»„ç»‡è”ç›Ÿä¸­å”¯ä¸€çš„ID. Will be passed to Device Information Service
 
-// UUID type for the Nordic UART Service (vendor specific)£¬Ö÷ÒªÊÇ¿ÉÒÔÓÃ¹Ù·½µÄAPP²âÊÔ
+// UUID type for the Nordic UART Service (vendor specific)ï¼Œä¸»è¦æ˜¯å¯ä»¥ç”¨å®˜æ–¹çš„APPæµ‹è¯•
 #define NUS_SERVICE_UUID_TYPE           BLE_UUID_TYPE_VENDOR_BEGIN                  
 
-#define APP_ADV_INTERVAL                400          //¹ã²¥¼ä¸ô(0.625 ms * 400 = 250 ms)£¬¹ã²¥¼ä¸ôÔ½´ó£¬Ô½Ê¡µç
-#define APP_ADV_TIMEOUT_IN_SECONDS      180      //¹ã²¥³¬Ê±£¬µ¥Î»s
+#define APP_ADV_INTERVAL                400          //å¹¿æ’­é—´éš”(0.625 ms * 400 = 250 ms)ï¼Œå¹¿æ’­é—´éš”è¶Šå¤§ï¼Œè¶Šçœç”µ
+#define APP_ADV_TIMEOUT_IN_SECONDS      180      //å¹¿æ’­è¶…æ—¶ï¼Œå•ä½s
 
 #define APP_TIMER_PRESCALER             0          // Value of the RTC1 PRESCALER register
 #define APP_TIMER_OP_QUEUE_SIZE         5          //Size of timer operation queues
@@ -67,15 +68,18 @@ APP_TIMER_DEF(m_sec_req_timer_id);
 
 extern ble_nus_t                        m_nus; /*Nordic UART Service*/
 
-//ÒÔÏÂ3¸ö±äÁ¿ÊÇÔÚuart serviceÖÐ±£´æµÄÈ«¾Ö±äÁ¿£¬½»¸øoperate_code_checkº¯ÊýÈ¥´¦Àí
+extern uint8_t device_name[DEVICE_NAME_SIZE];
+
+
+//ä»¥ä¸‹3ä¸ªå˜é‡æ˜¯åœ¨uart serviceä¸­ä¿å­˜çš„å…¨å±€å˜é‡ï¼Œäº¤ç»™operate_code_checkå‡½æ•°åŽ»å¤„ç†
 extern bool    							operate_code_setted;
 extern uint8_t							nus_data_array[BLE_NUS_MAX_DATA_LEN];
 extern uint16_t  						nus_data_array_length;
 
-//ÔÚ±àÒëµÄÊ±ºò£¬´úÌæÈõÁ¬½Ó£¬×öbleµÄ»Øµ÷º¯Êý
+//åœ¨ç¼–è¯‘çš„æ—¶å€™ï¼Œä»£æ›¿å¼±è¿žæŽ¥ï¼Œåšbleçš„å›žè°ƒå‡½æ•°
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name);
 
-//BLEÆô¶¯µÄÉèÖÃº¯Êý
+//BLEå¯åŠ¨çš„è®¾ç½®å‡½æ•°
 void timers_init(void);
 void application_timers_start(void);
 void gap_params_init(void);
@@ -87,8 +91,8 @@ void power_manage(void);
 void device_manager_init(bool erase_bonds);
 //void buttons_leds_init(bool * p_erase_bonds);
 
-//ÓëBLEÓÐ²¿·Ö·ÖÀë£¬½ÓÊÕ°å×ÓUART0µÄÊý¾Ý£¬Í¨¹ýÀ¶ÑÀ½øÐÐ´«Êä³öÈ¥
-//³õÊ¼»¯uart£¬¹©¸ø°å×ÓÉÏµÄapplicationÊ¹ÓÃ£¬(¹¤³ÌµÄ±àÒëÑ¡ÏîÓÐNRF_LOG_USES_UART=1 )
+//ä¸ŽBLEæœ‰éƒ¨åˆ†åˆ†ç¦»ï¼ŒæŽ¥æ”¶æ¿å­UART0çš„æ•°æ®ï¼Œé€šè¿‡è“ç‰™è¿›è¡Œä¼ è¾“å‡ºåŽ»
+//åˆå§‹åŒ–uartï¼Œä¾›ç»™æ¿å­ä¸Šçš„applicationä½¿ç”¨ï¼Œ(å·¥ç¨‹çš„ç¼–è¯‘é€‰é¡¹æœ‰NRF_LOG_USES_UART=1 )
 void uart_init(void);
 
 

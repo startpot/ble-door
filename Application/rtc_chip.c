@@ -1,16 +1,16 @@
 /***************************
-*	RTCĞ¾Æ¬ IIC½Ó¿Ú
+*	RTCèŠ¯ç‰‡ IICæ¥å£
 *--------------------------------------------------------------------------------------
 *	tm														RTC							
 *	tm_sec(int:0-60)							02H(BCD:0-59:[6:0])
 *	tm_min(int:0-59)							03H(BCD:0-59:[6:0])
 *	tm_hour(int:0-23)							04H(BCD:0-23:[5:0])
 *	tm_mday(int:1-31)							05H(BCD:1-31:[5:0])
-*	tm_mon(int:0-11)							07H(BCD:1-12:[4:0],7±íÊ¾ÊÀ¼Í)
+*	tm_mon(int:0-11)							07H(BCD:1-12:[4:0],7è¡¨ç¤ºä¸–çºª)
 *	tm_year(int:Year-1990)						08H(BCD:0-99)
 *	tm_wday(int:0-6)							06H(int:0-6)		sun-sat
 *	tm_yday(0-365)
-*	tm_isdst(ÏÄÁîÊ±)
+*	tm_isdst(å¤ä»¤æ—¶)
 ****************************/
 
 #include <stdint.h>
@@ -29,10 +29,10 @@
 
 #include "rtc_chip.h"
 
-nrf_drv_twi_t m_twi_master_rtc = NRF_DRV_TWI_INSTANCE(1); //Ö¸¶¨TWI1
+nrf_drv_twi_t m_twi_master_rtc = NRF_DRV_TWI_INSTANCE(1); //æŒ‡å®šTWI1
 
 /***********************
-*³õÊ¼»¯RTCĞ¾Æ¬
+*åˆå§‹åŒ–RTCèŠ¯ç‰‡
 ************************/
 static ret_code_t rtc_iic_init(void)
 {
@@ -58,7 +58,7 @@ static ret_code_t rtc_iic_init(void)
 }
 
 /*********************
-*RTCĞ¾Æ¬Ğ´Èë1¸öbyte
+*RTCèŠ¯ç‰‡å†™å…¥1ä¸ªbyte
 *********************/
 static ret_code_t rtc_i2c_device_write_byte(uint8_t address, uint8_t data)
 {
@@ -69,7 +69,7 @@ static ret_code_t rtc_i2c_device_write_byte(uint8_t address, uint8_t data)
 }
 
 /***********************
-*RTCĞ¾Æ¬¶Á³ölength¸öbyte
+*RTCèŠ¯ç‰‡è¯»å‡ºlengthä¸ªbyte
 ***********************/
 static ret_code_t rtc_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uint8_t length)
 {
@@ -77,7 +77,7 @@ static ret_code_t rtc_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte
 	
 	do
 	{
-	//Ğ´µØÖ·
+	//å†™åœ°å€
 	uint8_t set_address;
 	set_address = address;
 	ret = nrf_drv_twi_tx(&m_twi_master_rtc, RTC_CHIP_REAL_ADDR, &set_address, 1, true);
@@ -85,24 +85,26 @@ static ret_code_t rtc_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte
 	{
 		break;
 	}
-	//¶ÁÊı¾İ
+	//è¯»æ•°æ®
 	ret = nrf_drv_twi_rx(&m_twi_master_rtc, RTC_CHIP_REAL_ADDR, p_read_byte, length);
 	}while(0);
 	return ret;
 }
 
 /******************
-*	³õÊ¼»¯RTCĞ¾Æ¬
+*	åˆå§‹åŒ–RTCèŠ¯ç‰‡
 ******************/
 void rtc_init(void)
 {
-	//³õÊ¼»¯RTCµÄIIC
+	//åˆå§‹åŒ–RTCçš„IIC
 	rtc_iic_init();
 	
-	//Ê¹ÄÜRTCĞ¾Æ¬
+	//ä½¿èƒ½RTCèŠ¯ç‰‡
 	rtc_i2c_device_write_byte(PCF85163_Timer_control_ADDR, 0x83);
 	rtc_i2c_device_write_byte(PCF85163_Timer_ADDR, 0xff);
+#if defined(BLE_DOOR_DEBUG)
 	printf("rtc:pcf85163 init success\r\n");
+#endif
 }
 
 static uint8_t hex_2_bcd(uint8_t value)
@@ -116,70 +118,74 @@ static uint8_t bcd_2_hex(uint8_t value)
 }
 
 /******************
-*ÉèÖÃRTCĞ¾Æ¬µÄÊ±¼ä
+*è®¾ç½®RTCèŠ¯ç‰‡çš„æ—¶é—´
 *******************/
 uint8_t	rtc_time_write(struct tm *time_write)
 {
 	
 	uint8_t byte_write;
-	//Í£Ö¹RTC
+	//åœæ­¢RTC
 	rtc_i2c_device_write_byte(PCF85163_Timer_control_ADDR, 0x03);
-	//Ğ´Ãë
+	//å†™ç§’
 	byte_write = 0x7f & hex_2_bcd(time_write->tm_sec);
 	rtc_i2c_device_write_byte(PCF85163_VL_seconds_ADDR, byte_write);
-	//Ğ´·Ö
+	//å†™åˆ†
 	byte_write = 0x7f & hex_2_bcd(time_write->tm_min);
 	rtc_i2c_device_write_byte(PCF85163_Minutes_ADDR, byte_write);
-	//Ğ´Ğ¡Ê±
+	//å†™å°æ—¶
 	byte_write = 0x3f & hex_2_bcd(time_write->tm_hour);
 	rtc_i2c_device_write_byte(PCF85163_Hours_ADDR, byte_write);
-	//Ğ´Ìì
+	//å†™å¤©
 	byte_write = 0x3f & hex_2_bcd(time_write->tm_mday);
 	rtc_i2c_device_write_byte(PCF85163_Days_ADDR, byte_write);
-	//Ğ´ÖÜ
+	//å†™å‘¨
 	byte_write = 0x07 & hex_2_bcd(time_write->tm_wday);
 	rtc_i2c_device_write_byte(PCF85163_Weekdays_ADDR, byte_write);
-	//Ğ´ÔÂ 2xxxÄê
+	//å†™æœˆ 2xxxå¹´
 	byte_write = (0x1f & hex_2_bcd(time_write->tm_mon + 1)) + 0x80;
 	rtc_i2c_device_write_byte(PCF85163_Century_months_ADDR, byte_write);
-	//Ğ´Äê
+	//å†™å¹´
 	byte_write = 0xff & hex_2_bcd(time_write->tm_year - 10);
 	rtc_i2c_device_write_byte(PCF85163_Years_ADDR, byte_write);
-	//Ê¹ÄÜRTC
+	//ä½¿èƒ½RTC
 	rtc_i2c_device_write_byte(PCF85163_Timer_control_ADDR, 0x83);
+#if defined(BLE_DOOR_DEBUG)
 	printf("rtc time set:%4d-%2d-%2d %2d:%2d:%2d\r\n",\
 			time_write->tm_year +1990, time_write->tm_mon + 1, \
 			time_write->tm_mday, time_write->tm_hour, \
 			time_write->tm_min, time_write->tm_sec);
+#endif
 	return 0;
 }
 
 /*********************
-*¶Á³öRTCĞ¾Æ¬µÄÊ±¼ä
+*è¯»å‡ºRTCèŠ¯ç‰‡çš„æ—¶é—´
 *********************/
 uint8_t rtc_time_read(struct tm *time_read)
 {
 	uint8_t byte_read[7];
-	//¶ÁÊ±¼ä
+	//è¯»æ—¶é—´
 	rtc_i2c_device_read_byte(PCF85163_VL_seconds_ADDR, byte_read, 7);
 	
-	//Ğ´ÈëÃë
+	//å†™å…¥ç§’
 	time_read->tm_sec = bcd_2_hex(0x7f & byte_read[0]);
-	//Ğ´Èë·Ö
+	//å†™å…¥åˆ†
 	time_read->tm_min = bcd_2_hex(0x7f & byte_read[1]);
-	//Ğ´ÈëÊ±
+	//å†™å…¥æ—¶
 	time_read->tm_hour = bcd_2_hex(0x3f & byte_read[2]);
-	//Ğ´ÈëÌì
+	//å†™å…¥å¤©
 	time_read->tm_mday = bcd_2_hex(0x3f & byte_read[3]);
-	//Ğ´ÈëÖÜ
+	//å†™å…¥å‘¨
 	time_read->tm_wday = bcd_2_hex(0x07 & byte_read[4]);
-	//Ğ´ÈëÔÂ
+	//å†™å…¥æœˆ
 	time_read->tm_mon = bcd_2_hex(0x1f & byte_read[5]) - 1;
-	//Ğ´ÈëÄê
+	//å†™å…¥å¹´
 	time_read->tm_year = bcd_2_hex(0xff & byte_read[6]) + 10;
+#if defined(BLE_DOOR_DEBUG)
 	printf("rtc time read:%4d-%2d-%2d %2d:%2d:%2d\r\n",\
 			time_read->tm_year +1990, time_read->tm_mon + 1, \
 			time_read->tm_mday, time_read->tm_hour, \
 			time_read->tm_min, time_read->tm_sec);
+#endif
 	return 0;
 }

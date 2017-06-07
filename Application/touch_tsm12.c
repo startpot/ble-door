@@ -1,10 +1,10 @@
 /**************************************************
-*	´¥Ãþ°´¼ü·Ö²¼
+*	è§¦æ‘¸æŒ‰é”®åˆ†å¸ƒ
 *	T8---1			T9---2			T10--3
 *	T7---4			T12--5			T11--6
 *	T5---7			T1---8			T2---9
 *	T6---*			T4---0			T3---#
-*(#¾ÍÊÇ¿ªËø¼ü)
+*(#å°±æ˜¯å¼€é”é”®)
 **************************************************/
 
 #include <stdint.h>
@@ -24,10 +24,10 @@
 
 uint8_t key_value;
 
-nrf_drv_twi_t	m_twi_master_touch	= NRF_DRV_TWI_INSTANCE(1); //Ö¸¶¨TWI1
+nrf_drv_twi_t	m_twi_master_touch	= NRF_DRV_TWI_INSTANCE(1); //æŒ‡å®šTWI1
 
 /***********************************************
-*³õÊ¼»¯IIC
+*åˆå§‹åŒ–IIC
 ************************************************/
 ret_code_t touch_iic_init(void)
 {
@@ -58,7 +58,7 @@ ret_code_t touch_iic_init(void)
 *********************/
 void tsm12_en_start(void)
 {	
-	//ÉèÖÃÊ¹ÄÜ¶ËÎªÊä³ö
+	//è®¾ç½®ä½¿èƒ½ç«¯ä¸ºè¾“å‡º
 	nrf_gpio_cfg_output(TSM12_IIC_EN_PIN);
 	nrf_gpio_pin_clear(TSM12_IIC_EN_PIN);
 }
@@ -68,14 +68,14 @@ void tsm12_en_start(void)
 *************************/
 void tsm12_en_stop(void)
 {
-	//ÉèÖÃÊ¹ÄÜ¶ËÎªÊä³ö
+	//è®¾ç½®ä½¿èƒ½ç«¯ä¸ºè¾“å‡º
 	nrf_gpio_cfg_output(TSM12_IIC_EN_PIN);	
 	nrf_gpio_pin_set(TSM12_IIC_EN_PIN);
 }
 
 /**************************************
 *i2c_device_write_byte
-*Ð´Ä³¸öµØÖ·µÄÊý¾Ý
+*å†™æŸä¸ªåœ°å€çš„æ•°æ®
 ****************************************/
 ret_code_t touch_i2c_device_write_byte(uint8_t address, uint8_t data)
 {
@@ -88,7 +88,7 @@ ret_code_t touch_i2c_device_write_byte(uint8_t address, uint8_t data)
 
 /************************************
 *i2c_device_read_byte
-*´ÓÄ³¸öµØÖ·¿ªÊ¼¶ÁÊý¾Ý
+*ä»ŽæŸä¸ªåœ°å€å¼€å§‹è¯»æ•°æ®
 *************************************/
 ret_code_t touch_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uint8_t length)
 {	
@@ -96,7 +96,7 @@ ret_code_t touch_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uin
 	
 	do
 	{
-		//Ð´µØÖ·
+		//å†™åœ°å€
 		uint8_t set_address;
 		set_address = address;
 		
@@ -105,7 +105,7 @@ ret_code_t touch_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uin
 		{
 			break;
 		}
-		//¶ÁÊý¾Ý
+		//è¯»æ•°æ®
 		ret = nrf_drv_twi_rx(&m_twi_master_touch, TSM12_IIC_REAL_ADDR, p_read_byte, length);
 	}while(0);
 		
@@ -113,69 +113,70 @@ ret_code_t touch_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uin
 }
 
 /******************************************
-*³õÊ¼»¯IICÐ¾Æ¬
-*
+*åˆå§‹åŒ–IICèŠ¯ç‰‡
 *******************************************/
 void tsm12_init(void)
 {
 	uint8_t set_data;
-	//Ê¹ÄÜIIC¹Ü½Å
+	//ä½¿èƒ½IICç®¡è„š
 	tsm12_en_start();
 	
 	touch_iic_init();
 	
-	//Èí¼þ¸´Î»£¬Ë¯ÃßÄ£Ê½¿ª
+	//è½¯ä»¶å¤ä½ï¼Œç¡çœ æ¨¡å¼å¼€
 	set_data = 0x0F;
 	touch_i2c_device_write_byte(TSM12_CTRL2, set_data);
-	//Ê¹ÄÜÈí¼þ¸´Î»£¬Ë¯ÃßÄ£Ê½¹Ø
+	//ä½¿èƒ½è½¯ä»¶å¤ä½ï¼Œç¡çœ æ¨¡å¼å…³
 	set_data = 0x07;
 	touch_i2c_device_write_byte(TSM12_CTRL2, set_data);
-	//ÉèÖÃÍ¨µÀ1-2µÄÁéÃô¶È
+	//è®¾ç½®é€šé“1-2çš„çµæ•åº¦
 	set_data = 0xBB;
 	touch_i2c_device_write_byte(TSM12_Sensitivity1, set_data);
-	//ÉèÖÃÍ¨µÀ3-4µÄÁéÃô¶È
+	//è®¾ç½®é€šé“3-4çš„çµæ•åº¦
 	touch_i2c_device_write_byte(TSM12_Sensitivity2, set_data);
-	//ÉèÖÃÍ¨µÀ5-6µÄÁéÃô¶È
+	//è®¾ç½®é€šé“5-6çš„çµæ•åº¦
 	touch_i2c_device_write_byte(TSM12_Sensitivity3, set_data);
-	//ÉèÖÃÍ¨µÀ7-8µÄÁéÃô¶È
+	//è®¾ç½®é€šé“7-8çš„çµæ•åº¦
 	touch_i2c_device_write_byte(TSM12_Sensitivity4, set_data);
-	//ÉèÖÃÍ¨µÀ9-10µÄÁéÃô¶È
+	//è®¾ç½®é€šé“9-10çš„çµæ•åº¦
 	touch_i2c_device_write_byte(TSM12_Sensitivity5, set_data);
-	//ÉèÖÃÍ¨µÀ11-12µÄÁéÃô¶È
+	//è®¾ç½®é€šé“11-12çš„çµæ•åº¦
 	touch_i2c_device_write_byte(TSM12_Sensitivity6, set_data);
 	
-		//»ù±¾ÉèÖÃ
+		//åŸºæœ¬è®¾ç½®
 //	set_data = 0x22;
 //	i2c_device_write_byte(TSM12_CTRL1, set_data);
 	
 	
-	//²»¸´Î»Í¨µÀ1-8µÄ²Î¿¼
+	//ä¸å¤ä½é€šé“1-8çš„å‚è€ƒ
 	set_data = 0x00;
 	touch_i2c_device_write_byte(TSM12_Ref_rst1, set_data);
-	//²»¸´Î»Í¨µÀ9-12µÄ²Î¿¼
+	//ä¸å¤ä½é€šé“9-12çš„å‚è€ƒ
 	set_data = 0x00;
 	touch_i2c_device_write_byte(TSM12_Ref_rst2, set_data);
 	
 	/*
-	//Ê¹ÄÜÍ¨µÀ1-8¸´Î»
+	//ä½¿èƒ½é€šé“1-8å¤ä½
 	set_data = 0x00;
 	i2c_device_write_byte(TSM12_Cal_hold1, set_data);
-	//Ê¹ÄÜÍ¨µÀ9-12¸´Î»
+	//ä½¿èƒ½é€šé“9-12å¤ä½
 	set_data = 0x00;
 	i2c_device_write_byte(TSM12_Cal_hold2, set_data);
 	*/
 	
-	//´ò¿ª1-8ËùÓÐÍ¨µÀ
+	//æ‰“å¼€1-8æ‰€æœ‰é€šé“
 	set_data = 0x00;
 	touch_i2c_device_write_byte(TSM12_Ch_hold1, set_data);
-	//´ò¿ª9-12ËùÓÐÍ¨µÀ
+	//æ‰“å¼€9-12æ‰€æœ‰é€šé“
 	set_data = 0x00;
 	touch_i2c_device_write_byte(TSM12_Ch_hold2, set_data);
+#if defined(BLE_DOOR_DEBUG)
 	printf("touch button ic:tsm12 init success\r\n");
+#endif
 }
 
 /***************************************************
-*key_read(),¶ÁÈ¡¼üÖµ
+*key_read(),è¯»å–é”®å€¼
 ***************************************************/
 uint8_t tsm12_key_read(void)
 {
@@ -184,11 +185,11 @@ uint8_t tsm12_key_read(void)
 	
 	p = temp;
 	
-	//¶ÁÈ¡Í¨µÀ1-4
+	//è¯»å–é€šé“1-4
 	touch_i2c_device_read_byte(TSM12_Output1, p, 0x01);
-	//¶ÁÈ¡Í¨µÀ5-8
+	//è¯»å–é€šé“5-8
 	touch_i2c_device_read_byte(TSM12_Output2, (p+1), 0x01);
-	//¶ÁÈ¡Í¨µÀ9-12
+	//è¯»å–é€šé“9-12
 	touch_i2c_device_read_byte(TSM12_Output3, (p+2), 0x01);
 	
 	if(*p > 2)

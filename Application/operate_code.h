@@ -13,23 +13,23 @@
 extern uint32_t key_store_number;
 extern struct key_store_struct 		key_store_struct_store;
 
-extern uint8_t data_array_store[BLE_NUS_MAX_DATA_LEN];//20Î»
-extern uint32_t 	data_send_length;//²âÊÔÊı¾İ´æ´¢Ê±£¬³¤¶ÈµÄÈ«¾Ö±äÁ¿
+extern uint8_t data_array_store[BLE_NUS_MAX_DATA_LEN];//20ä½
+extern uint32_t 	data_send_length;//æµ‹è¯•æ•°æ®å­˜å‚¨æ—¶ï¼Œé•¿åº¦çš„å…¨å±€å˜é‡
 
-extern uint32_t record_length_number;
 extern struct door_open_record door_open_record_get;
-extern struct tm time_record;
-extern struct tm time_record_compare;
-extern time_t time_record_compare_t;
-extern time_t time_record_t;
+extern struct tm 	time_record;
+extern time_t 		time_record_t;
+extern struct tm 	time_record_compare;
+extern time_t 		time_record_compare_t;
+
 
 /**********************************
-* Êı¾İ°üµÄ·ÖÎö
+* æ•°æ®åŒ…çš„åˆ†æ
 ***********************************/
 
-#define OPERATE_CODE_BIT		0
+#define OPERATE_CODE_BIT		0	//å‘½ä»¤ä½ï¼Œé™¤å»ç”¨æˆ·è®¾ç½®å¯†ç çš„å‘½ä»¤
 
-#define DOOR_OPEN_KEY			0x00
+//#define DOOR_OPEN_KEY			0x00
 #define	SYNC_TIME				0x80
 #define SET_PARAMS				0x81
 #define	SET_KEY_SEED			0x82
@@ -43,7 +43,6 @@ extern time_t time_record_t;
 
 #define GET_TIME				0x86
 
-void mac_set(void);
 void operate_code_check(uint8_t *p_data, uint16_t length);
 
 

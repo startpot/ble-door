@@ -1,5 +1,5 @@
 /**********************
-*ËÄ½Å·äÃùÆ÷
+*å››è„šèœ‚é¸£å™¨
 *
 **********************/
 #include <stdio.h>
@@ -14,18 +14,20 @@
 
 
 /**************
-*	³õÊ¼»¯·äÃùÆ÷
+*	åˆå§‹åŒ–èœ‚é¸£å™¨
 **************/
 void beep_init(void)
 {
 	nrf_gpio_cfg_output(BEEP_IN_PIN);
-	//ÉèÖÃ¸ß
+	//è®¾ç½®é«˜
 	nrf_gpio_pin_clear(BEEP_IN_PIN);
-	printf("beep have been set low\r\n");
+#if defined(BLE_DOOR_DEBUG)
+	printf("beep status set low\r\n");
+#endif
 }
 
 /*********************
-* ·äÃùÆ÷ÏìÒ»´Î
+* èœ‚é¸£å™¨å“ä¸€æ¬¡
 *********************/
 static void	beep_didi_once(void)
 {
@@ -39,16 +41,16 @@ static void	beep_didi_once(void)
 }
 
 /*****************
-*·äÃùÆ÷Ïì¼¸´Î
+*èœ‚é¸£å™¨å“å‡ æ¬¡
 *****************/
 void beep_didi(uint8_t number)
 {
-	//·äÃùÆ÷Ïì
+	//èœ‚é¸£å™¨å“
 	for(int i = 0; i < number; i++)
 	{
 		beep_didi_once();
 		nrf_delay_ms(50);
 	}
-	//»Ö¸´·äÃùÆ÷×´Ì¬
+	//æ¢å¤èœ‚é¸£å™¨çŠ¶æ€
 	nrf_gpio_pin_set(BEEP_IN_PIN);	
 }

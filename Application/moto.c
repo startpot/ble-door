@@ -19,60 +19,62 @@ uint32_t OPEN_TIME;
 
 
 /***********************
-*³õÊ¼»¯moto
+*åˆå§‹åŒ–moto
 ************************/
 void moto_init(void)
 {
-	//ÅäÖÃP.2(fi) P.3(bi)
+	//é…ç½®P.2(fi) P.3(bi)
 	nrf_gpio_cfg_output(MOTO_FI);
 	nrf_gpio_cfg_output(MOTO_BI);
 	
-	//ÉèÖÃÎªstand-by×´Ì¬
+	//è®¾ç½®ä¸ºstand-byçŠ¶æ€
 	nrf_gpio_pin_clear(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
-	printf("moto have been set stand_by\r\n");
+#if defined(BLE_DOOR_DEBUG)
+	printf("moto status set stand_by\r\n");
+#endif
 }
 
 /*****************************
-*motoÏòÇ°¶¯ms
+*motoå‘å‰åŠ¨ms
 *****************************/
 void moto_forward_ms(uint32_t ms)
 {
-	//HBÉèÖÃÎªHL
+	//HBè®¾ç½®ä¸ºHL
 	nrf_gpio_pin_set(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
-	//ÑÓ³Ùms
+	//å»¶è¿Ÿms
 	nrf_delay_ms(ms);
 	nrf_gpio_pin_set(MOTO_BI);
 			
-	//ÑÓ³Ù5ms
+	//å»¶è¿Ÿ5ms
 	nrf_delay_ms(5);
-	//ÉèÖÃÎªstand-by×´Ì¬
+	//è®¾ç½®ä¸ºstand-byçŠ¶æ€
 	nrf_gpio_pin_clear(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
 }
 
 /****************************
-*mtoÏòºó¶¯ms
+*mtoå‘ååŠ¨ms
 ****************************/
 void moto_backward_ms(uint32_t ms)
 {
-	//HBÉèÖÃÎªLH
+	//HBè®¾ç½®ä¸ºLH
 	nrf_gpio_pin_set(MOTO_BI);
 	nrf_gpio_pin_clear(MOTO_FI);
-	//ÑÓ³Ùms
+	//å»¶è¿Ÿms
 	nrf_delay_ms(ms);
 	nrf_gpio_pin_set(MOTO_FI);
 			
-	//ÑÓ³Ù5ms
+	//å»¶è¿Ÿ5ms
 	nrf_delay_ms(5);
-	//ÉèÖÃÎªstand-by×´Ì¬
+	//è®¾ç½®ä¸ºstand-byçŠ¶æ€
 	nrf_gpio_pin_clear(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
 }
 
 /***************************
-*ÃÅ´ò¿ª
+*é—¨æ‰“å¼€
 ****************************/
 void moto_open(uint32_t open_time)
 {
@@ -80,7 +82,7 @@ void moto_open(uint32_t open_time)
 }
 
 /*************************
-*ÃÅ¹Ø±Õ
+*é—¨å…³é—­
 *************************/
 void moto_close(uint32_t close_time)
 {

@@ -47,6 +47,53 @@
 #include "operate_code.h"
 #include "set_params.h"
 #include "ble_init.h"
+#include "sm4_mcu.h"
+#include "sm4_dpwd.h"
+
+
+void sm4_test(void)
+{
+	struct sm4_context sm4_ctx;
+	uint8_t output[16];
+	uint8_t key[16] = {0x01, 0x23, 0x45, 0x67, \
+					 0x89, 0xab, 0xcd, 0xef, \
+					 0xfe, 0xdc, 0xba, 0x98, \
+					 0x76, 0x54, 0x32, 0x10};
+	uint8_t data[16] = {0x01, 0x23, 0x45, 0x67, \
+					 0x89, 0xab, 0xcd, 0xef, \
+					 0xfe, 0xdc, 0xba, 0x98, \
+					 0x76, 0x54, 0x32, 0x10};
+	
+	sm4_ctx.mode = SM4_ENCRYPT;
+	sm4_ctx.sk[0] = 0x00;
+							 
+	sm4_setkey_enc(&sm4_ctx, key);
+					 
+	// output = 			 0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e
+	//						 0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e, 0x42, 0x46
+	sm4_crypt_ecb( &sm4_ctx, SM4_ENCRYPT, 16, data, output);
+
+	uint8_t DynPwd[6];
+	
+	// DPasswd
+	key[ 0] = 0x12; key[ 1] = 0x34; key[ 2] = 0x56; key[ 3] = 0x78;
+	key[ 4] = 0x90; key[ 5] = 0xab; key[ 6] = 0xcd; key[ 7] = 0xef;
+	key[ 8] = 0x12; key[ 9] = 0x34; key[10] = 0x56; key[11] = 0x78;
+	key[12] = 0x90; key[13] = 0xab; key[14] = 0xcd; key[15] = 0xef;
+	uint16_t Interval = 0x01;
+	uint64_t time = 0x4feab9cd;
+	uint32_t counter = 0x000004d2;
+	uint8_t Challenge[4] = {0x35, 0x36, 0x37, 0x38};
+	
+	// SM4 encoder output is
+	// 88 0d 6a e7 7e cf 8e e5 23 5c 71 98 e1 3f 15 9c
+	// TruncateSM4 output is
+	// 0b 78 81 00
+	// DPasswd is : 446720
+	SM4_DPasswd(key, time, Interval, counter, Challenge, DynPwd);
+}
+
+
 
 
 /*****************************
@@ -57,15 +104,19 @@ int main(void)
 	uint32_t err_code;
 	bool erase_bonds;
 	
-	//³õÊ¼»¯UART,printf´òÓ¡µ÷ÊÔĞÅÏ¢ĞèÒªuart£¬ËùÒÔÏÈ³õÊ¼»¯uart
-	//uartµÄËÙÂÊÎª115200¾¡Á¿µÄ¿ì£¬´òÓ¡³öÈ«²¿ĞÅÏ¢
+	//åˆå§‹åŒ–UART,printfæ‰“å°è°ƒè¯•ä¿¡æ¯éœ€è¦uartï¼Œæ‰€ä»¥å…ˆåˆå§‹åŒ–uart
+	//uartçš„é€Ÿç‡ä¸º115200å°½é‡çš„å¿«ï¼Œæ‰“å°å‡ºå…¨éƒ¨ä¿¡æ¯
 	uart_init();
+	//åˆå§‹åŒ–å†…éƒ¨flash
+	flash_init();
 	
+#if defined(BLE_DOOR_DEBUG)	
 	printf("***ble door controller***");
 	printf("\r\n");
-		
+#endif
+	
 	timers_init();
-	//³õÊ¼»¯Ğ­ÒéÕ»
+	//åˆå§‹åŒ–åè®®æ ˆ
 	ble_stack_init();
 	device_manager_init(erase_bonds);
 	gap_params_init();
@@ -73,22 +124,20 @@ int main(void)
 	advertising_init();
 	conn_params_init();
 	
-	//³õÊ¼»¯ÄÚ²¿flash
-	flash_init();
-	//³õÊ¼»¯ËùÓĞ²ÎÊı
+	//åˆå§‹åŒ–æ‰€æœ‰å‚æ•°
 	set_default_params();
-	//³õÊ¼»¯µÆ£¬À­¸ß£¬Ãğ
+	//åˆå§‹åŒ–ç¯ï¼Œæ‹‰é«˜ï¼Œç­
 	leds_init();
-	//³õÊ¼»¯µç»ú
+	//åˆå§‹åŒ–ç”µæœº
 	moto_init();
-	//³õÊ¼»¯·äÃùÆ÷
+	//åˆå§‹åŒ–èœ‚é¸£å™¨
 	beep_init();
-	//³õÊ¼»¯´¥ÃşÆÁ
+	//åˆå§‹åŒ–è§¦æ‘¸å±
 	tsm12_init();
-	//³õÊ¼»¯RTC
+	//åˆå§‹åŒ–RTC
 	rtc_init();
 	
-	//Ê±¼äRTC²âÊÔ´úÂë,Éè¶¨Ê±¼äÎª2017.5.1. 23£º59£º59
+	//æ—¶é—´RTCæµ‹è¯•ä»£ç ,è®¾å®šæ—¶é—´ä¸º2017.5.1. 23ï¼š59ï¼š59
 	struct tm time_set_test = 
 	{
 		.tm_sec = 59,
@@ -100,18 +149,26 @@ int main(void)
 		.tm_wday = 1,
 	};
 	rtc_time_write(&time_set_test);
-	//³õÊ¼»¯´¥ÃşÆÁµÄÖĞ¶Ïº¯Êı
+	//åˆå§‹åŒ–è§¦æ‘¸å±çš„ä¸­æ–­å‡½æ•°
 	iic_int_buttons_init();
 	
-	//Ìí¼ÓÅä¶ÔÃÜÂë
+	
+	//åŠ¨æ€å¯†ç çš„æµ‹è¯•ç¨‹åº
+//	sm4_test();
+	
+	//æ·»åŠ é…å¯¹å¯†ç 
 	char *passcode = "123456";
 	ble_opt_t static_option;
 	
 	static_option.gap_opt.passkey.p_passkey = (uint8_t *)passcode;
 	err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &static_option);
 	APP_ERROR_CHECK(err_code);
+	
+#if defined(BLE_DOOR_DEBUG)
 	printf("ble pair pin set:%s \n",passcode);
 	printf("\r\n");
+#endif
+
 	application_timers_start();
 	err_code = ble_advertising_start(BLE_ADV_MODE_FAST);
 	APP_ERROR_CHECK(err_code);
@@ -119,7 +176,7 @@ int main(void)
 	while(true)
 	{
 		power_manage();
-		//ÅĞ¶ÏÃüÁî
+		//åˆ¤æ–­å‘½ä»¤
 		if(operate_code_setted ==true)
 		{
 			operate_code_check(nus_data_array, nus_data_array_length);

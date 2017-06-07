@@ -14,50 +14,37 @@
 #include "inter_flash.h"
 #include "set_params.h"
 #include "led_button.h"
+#include "sm4_dpwd.h"
 
 
 uint32_t key_store_number;
 struct key_store_struct	key_store_struct_set;
 
-uint8_t data_array_store[BLE_NUS_MAX_DATA_LEN];//20Î»
+uint8_t data_array_store[BLE_NUS_MAX_DATA_LEN];//20ä½
 uint32_t data_send_length = 0;
 
-uint32_t record_length_number;
 struct door_open_record door_open_record_get;
-struct tm time_record;//¶Á³ö¼ÇÂ¼µÄÊ±¼ä
-struct tm time_record_compare;//Òª¶Ô±ÈµÄÊ±¼ä
-time_t time_record_compare_t;//Òª¶Ô±ÈµÄÊ±¼äµÄint
-time_t time_record_t;//¶Á³öµÄÊ±¼äµÄint
+struct tm 	time_record;//è¯»å‡ºè®°å½•çš„æ—¶é—´
+time_t 		time_record_t;//è¯»å‡ºçš„æ—¶é—´çš„int
+struct tm 	time_record_compare;//è¦å¯¹æ¯”çš„æ—¶é—´
+time_t 		time_record_compare_t;//è¦å¯¹æ¯”çš„æ—¶é—´çš„int
 
-void mac_set(void)
-{
-	uint32_t err_code;
-	//ÉèÖÃmacµØÖ·
-	
-	ble_gap_addr_t addr;
-	err_code = sd_ble_gap_address_get(&addr);
-	APP_ERROR_CHECK(err_code);
-	addr.addr[0] +=1;
-	err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE,&addr);
-	APP_ERROR_CHECK(err_code);
-}
 
 /********************************
-*¶Ônus servvice´«À´µÄÊı¾İ½øĞĞ·ÖÎö
+*å¯¹nus servviceä¼ æ¥çš„æ•°æ®è¿›è¡Œåˆ†æ
 ********************************/
 void operate_code_check(uint8_t *p_data, uint16_t length)
 {
 	uint8_t err_code;
 	
-	//Óë»ñÈ¡ºÍÉèÖÃÊ±¼äÏà¹ØµÄ±äÁ¿
+	//ä¸è·å–å’Œè®¾ç½®æ—¶é—´ç›¸å…³çš„å˜é‡
 	struct tm time_set;
 	struct tm time_get;
-	//ÓëÉèÖÃmacÓĞ¹ØµÄ±äÁ¿
+	time_t time_get_t;
+	//ä¸è®¾ç½®macæœ‰å…³çš„å˜é‡
 	ble_gap_addr_t addr;
-	//Óë»ñÈ¡¼ÇÂ¼ÊıÁ¿ÓĞ¹ØµÄ±äÁ¿
-	uint8_t tmp[4];
 		
-	//²âÊÔ "01234"ÊÇ·ñ»á¿ªËø
+	//æµ‹è¯• "01234"æ˜¯å¦ä¼šå¼€é”
 	if(strncasecmp((char *)p_data, "01234", 5) == 0)
 	{
 		ble_door_open();
@@ -65,29 +52,77 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 	
 	switch(p_data[0])
 	{
-		case DOOR_OPEN_KEY://ÉèÖÃ¿ªËøÃØÔ¿
-		key_store_write((struct key_store_struct *)&p_data);
+		case 0x30://è®¾ç½®å¼€é”ç§˜é’¥
+		case 0x31:
+		case 0x32:
+		case 0x33:
+		case 0x34:
+		case 0x35:
+		case 0x36:
+		case 0x37:
+		case 0x38:
+		case 0x39:
+		//è·å–æ”¶åˆ°çš„æ—¶é—´
+		err_code = rtc_time_read(&time_get);
+		if(err_code == NRF_SUCCESS)
+		{
+			time_get_t = mktime(&time_get);
+		}
+		
+		//å¯¹æ¯”SET_KEY_CHECK_NUMBERæ¬¡è®¾ç½®çš„å¯†ç 
+		for(int i=0; i<SET_KEY_CHECK_NUMBER; i++)
+		{
+			SM4_DPasswd(seed, time_get_t, SM4_INTERVAL, SM4_COUNTER, SM4_challenge, key_store_tmp);
+
+			if(strncasecmp((char *)p_data, (char *)key_store_tmp, KEY_LENGTH) == 0)
+			{//è®¾ç½®çš„å¯†ç ç›¸åŒ
+
+#if defined(BLE_DOOR_DEBUG)
+				printf("key set success\r\n");
+#endif
+
+				//ç»„ç»‡å¯†ç ç»“æ„ä½“
+				memset(&key_store_struct_set, 0 , sizeof(struct key_store_struct));
+				//å†™å¯†ç 
+				memcpy(&key_store_struct_set.key_store, p_data, 6);
+				//å†™æœ‰æ•ˆæ—¶é—´
+				memcpy(&key_store_struct_set.key_use_time, &p_data[6], 2);
+				//å†™æ§åˆ¶å­—
+				memcpy(&key_store_struct_set.control_bits, &p_data[8], 1);
+				//å†™ç‰ˆæœ¬å·
+				memcpy(&key_store_struct_set.key_vesion, &p_data[9], 1);
+				//å†™å­˜å…¥æ—¶é—´
+				memcpy(&key_store_struct_set.key_store_time, &time_get_t, sizeof(time_t));
+				key_store_write(&key_store_struct_set);
+			}
+			else
+			{
+				time_get_t = time_get_t - 60;
+			}
+		}
+
 		break;
 	
-		case SYNC_TIME://Í¬²½Ê±¼ä
-		//ÊÇ¶ÔÊ±ÃüÁî,[year0][year1][mon][day][hour][min][sec]
+		case SYNC_TIME://åŒæ­¥æ—¶é—´
+		//æ˜¯å¯¹æ—¶å‘½ä»¤,[year0][year1][mon][day][hour][min][sec]
 		time_set.tm_sec = (int)p_data[7];
 		time_set.tm_min = (int)p_data[6];
 		time_set.tm_hour = (int)p_data[5];
 		time_set.tm_mday = (int)p_data[4];
 		time_set.tm_mon = (int)p_data[3];
-		time_set.tm_year = (int)((((int)p_data[1])<<8 | (int)p_data[2]) - 1990);			
-		//½«Ê±¼äĞ´ÈëRTC
+		time_set.tm_year = (int)((((int)p_data[1])<<8 | (int)p_data[2]) - 1990);
+		
+		//å°†æ—¶é—´å†™å…¥RTC
 		err_code =  rtc_time_write(&time_set);
 		if(err_code ==NRF_SUCCESS)
 		{
-			//½«ÃüÁî¼ÓÉÏ0x40,·µ»Ø¸øapp
+			//å°†å‘½ä»¤åŠ ä¸Š0x40,è¿”å›ç»™app
 			nus_data_array[0] = nus_data_array[0] + 0x40;
 			ble_nus_string_send(&m_nus, nus_data_array, nus_data_array_length);
 		}			
 		break;
 		
-		case GET_TIME://»ñÈ¡Ê±¼ä
+		case GET_TIME://è·å–æ—¶é—´
 		err_code = rtc_time_read(&time_get);
 		if(err_code == NRF_SUCCESS)
 		{
@@ -103,64 +138,76 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 		}
 		break;
 		
-		case SET_PARAMS://ÉèÖÃ²ÎÁ¿
-		//ÉèÖÃµç»ú×ª¶¯Ê±¼ä
+		case SET_PARAMS://è®¾ç½®å‚é‡
+		//è®¾ç½®ç”µæœºè½¬åŠ¨æ—¶é—´
 		OPEN_TIME = p_data[1];
-		//ÉèÖÃ¿ªÃÅÊ±¼ä
+		//è®¾ç½®å¼€é—¨æ—¶é—´
 		DOOR_OPEN_HOLD_TIME = p_data[2];
-		//ÉèÖÃ·äÃùÆ÷Ïì¶¯´ÎÊı
+		//è®¾ç½®èœ‚é¸£å™¨å“åŠ¨æ¬¡æ•°
 		BEEP_DIDI_NUMBER = p_data[3];
-		//ÉèÖÃÁÁµÆÊ±¼ä
+		//è®¾ç½®äº®ç¯æ—¶é—´
 		LED_LIGHT_TIME = p_data[4];
-		//ÉèÖÃÃÜÂëµÄĞ£¶Ô´ÎÊı
+		//è®¾ç½®å¯†ç çš„æ ¡å¯¹æ¬¡æ•°(å•ä½ 10min)
 		KEY_CHECK_NUMBER = p_data[5];
 		
 		memset(flash_write_data, 0, 8);
-		memcpy(&flash_write_data[1], &p_data[1], 5);
+		//å†™å…¥æ ‡è®°'w'
 		flash_write_data[0] = 0x77;
-		//½«²ÎÊıĞ´Èëµ½flash
+		memcpy(&flash_write_data[1], &p_data[1], 5);
+		
+		//å°†å‚æ•°å†™å…¥åˆ°flash
 		inter_flash_write(flash_write_data, 8, DEFAULT_PARAMS_OFFSET, &block_id_flash_store);
 		
-		//Ó¦´ğ°ü
-		//½«ÃüÁî¼ÓÉÏ0x40,·µ»Ø¸øapp
+		//åº”ç­”åŒ…
+		//å°†å‘½ä»¤åŠ ä¸Š0x40,è¿”å›ç»™app
 		nus_data_array[0] = nus_data_array[0] + 0x40;
 		ble_nus_string_send(&m_nus, nus_data_array, nus_data_array_length);
 		break;
 		
-		case SET_KEY_SEED://Ğ´ÈëÖÖ×Ó
+		case SET_KEY_SEED://å†™å…¥ç§å­
+		//ä¼ è¾“çš„ç§å­åº”è¯¥æ˜¯å°ç«¯å­—èŠ‚
+		memset(flash_write_data, 0, BLOCK_STORE_SIZE);
+		//å†™å…¥æ ‡è®°'w'
+		flash_write_data[0] = 0x77;
+		memcpy(&flash_write_data[1],&p_data[1], SEED_LENGTH);
 		
+		//å°†ç§å­å†™å…¥åˆ°flash
+		inter_flash_write(flash_write_data, BLOCK_STORE_SIZE, SEED_OFFSET, &block_id_flash_store);
+		
+		//åº”ç­”åŒ…
+		//å°†å‘½ä»¤åŠ ä¸Š0x40,è¿”å›ç»™app
+		nus_data_array[0] = nus_data_array[0] + 0x40;
+		ble_nus_string_send(&m_nus, nus_data_array, nus_data_array_length);	
 		break;
 		
-		case SET_MAC://ÅäÖÃmac
+		case SET_MAC://é…ç½®mac
 		memset(addr.addr, 0, 6);
-		//¿½±´ÉèÖÃµÄmac
+		//æ‹·è´è®¾ç½®çš„mac
 		memcpy(addr.addr, &p_data[1], 6);
 		err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE,&addr);
 		if(err_code == NRF_SUCCESS)
 		{
-			//½«ÃüÁî¼ÓÉÏ0x40,·µ»Ø¸øapp
+			//å°†å‘½ä»¤åŠ ä¸Š0x40,è¿”å›ç»™app
 			nus_data_array[0] = nus_data_array[0] + 0x40;
 			ble_nus_string_send(&m_nus, nus_data_array, nus_data_array_length);
 		}		
 		break;
 		
-/*		case SET_BLE_UUID://ÅäÖÃuuid
+/*		case SET_BLE_UUID://é…ç½®uuid
 		
 		break;*/
 		
-		case SET_SUPER_KEY://ÉèÖÃ¹ÜÀíÔ±ÃÜÂë
+		case SET_SUPER_KEY://è®¾ç½®ç®¡ç†å‘˜å¯†ç 
 		memset(flash_write_data, 0, BLOCK_STORE_SIZE*sizeof(uint8_t));
 		memcpy(&flash_write_data[1],&p_data[1], SUPER_KEY_LENGTH);
 		flash_write_data[0] = 0x77;//'w'
 		write_super_key(flash_write_data);
 		break;
 		
-		case GET_USED_KEY://²éÑ¯ÓĞĞ§ÃÜÂë
-		//»ñÈ¡ÃÜÂëµÄÊıÁ¿
-		inter_flash_read(data_array_store, 4, KEY_STORE_OFFSET, &block_id_flash_store);
-		//Ğ¡¶Ë×Ö½ÚµÄ¼ÆËã
-		key_store_number = (((int)data_array_store[0])| ((int)data_array_store[1])<<8 |\
-							((int)data_array_store[2])<<16 | ((int)data_array_store[3])<<24);
+		case GET_USED_KEY://æŸ¥è¯¢æœ‰æ•ˆå¯†ç 
+		//è·å–å¯†ç çš„æ•°é‡ï¼Œå°ç«¯å­—èŠ‚
+		inter_flash_read((uint8_t *)&key_store_number, 4, KEY_STORE_OFFSET, &block_id_flash_store);
+
 		data_array_store[0] = p_data[0] + 0x40;
 		data_array_store[1] = (uint8_t)key_store_number;
 		
@@ -172,40 +219,37 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			ble_nus_string_send(&m_nus, data_array_store, sizeof(struct key_store_struct)+3);
 		}
 		break;
-		case GET_RECORD_NUMBER://²éÑ¯¼ÇÂ¼ÊıÁ¿
-		//¶ÁÈ¡¼ÇÂ¼µÄÊıÁ¿
-		inter_flash_read(&data_array_store[1], 4, RECORD_OFFSET, &block_id_flash_store);
-		memcpy(&data_array_store[1], tmp, 4);
-		//½øĞĞĞ¡×Ö½Ú±ä´ó¶Ë×Ö½Ú
-		data_array_store[1] = tmp[3];
+		case GET_RECORD_NUMBER://æŸ¥è¯¢è®°å½•æ•°é‡
+		//è¯»å–è®°å½•çš„æ•°é‡,å°ç«¯å­—èŠ‚
+		inter_flash_read((uint8_t *)&record_length, 4, RECORD_OFFSET, &block_id_flash_store);
+		memcpy(&data_array_store[1], (uint8_t *)&record_length, 4);
+		//appä¹Ÿæ˜¯å°ç«¯
+/*		data_array_store[1] = tmp[3];
 		data_array_store[2] = tmp[2];
 		data_array_store[3] = tmp[1];
 		data_array_store[4] = tmp[0];
-		
+	*/	
 		data_array_store[0] = p_data[0] + 0x40;
 		ble_nus_string_send(&m_nus, data_array_store, 5);
 		break;
 		
-		case GET_RECENT_RECORD://²éÑ¯Ö¸¶¨ÈÕÆÚºóµÄ¼ÇÂ¼
+		case GET_RECENT_RECORD://æŸ¥è¯¢æŒ‡å®šæ—¥æœŸåçš„è®°å½•
 		time_record_compare.tm_sec = p_data[7];
 		time_record_compare.tm_min = p_data[6];
 		time_record_compare.tm_hour = p_data[5];
 		time_record_compare.tm_mday = p_data[4];
 		time_record_compare.tm_mon = p_data[3];
 		time_record_compare.tm_year = (((int)p_data[1])<<8 | (int)p_data[2]);
-		//¼ÆËãÃëÊı
+		//è®¡ç®—ç§’æ•°
 		time_record_compare_t = mktime(&time_record_compare);
-		//»ñÈ¡¼ÇÂ¼µÄÊıÁ¿
-		inter_flash_read(data_array_store, 4, RECORD_OFFSET, &block_id_flash_store);
-		//Ğ¡¶Ë×Ö½Ú£¬Çó¼ÇÂ¼µÄÊıÁ¿
-		record_length_number = ((int)data_array_store[0]) | ((int)data_array_store[1])<<8 |\
-						((int)data_array_store[2])<<16 | ((int)data_array_store[3])<<24;
+		//è·å–è®°å½•çš„æ•°é‡,å°ç«¯å­—èŠ‚
+		inter_flash_read((uint8_t *)&record_length, 4, RECORD_OFFSET, &block_id_flash_store);
 		
-		for(int i=0; i<record_length_number; i++)
+		for(int i=0; i<record_length; i++)
 		{
-			//¶Á³ö¼ÇÂ¼
+			//è¯»å‡ºè®°å½•
 			inter_flash_read((uint8_t *)&door_open_record_get, 12, (RECORD_OFFSET+1+i), &block_id_flash_store);
-			//¶Ô±ÈÊ±¼ä
+			//å¯¹æ¯”æ—¶é—´
 			if(difftime(door_open_record_get.door_open_time, time_record_compare_t)>0)
 			{
 				data_array_store[0] = p_data[0] + 0x40;

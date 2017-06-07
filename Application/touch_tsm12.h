@@ -8,7 +8,7 @@
 #include "nrf_drv_twi.h"
 
 
-/*************TSM12MµÄµØÖ·ºÍÒı½Å*********/
+/*************TSM12Mçš„åœ°å€å’Œå¼•è„š*********/
 
 #define TSM12_DEVICE_ADDR			0xD0
 #define TSM12_IIC_REAL_ADDR 		(TSM12_DEVICE_ADDR>>1)
@@ -19,7 +19,7 @@
 #define TSM12_IIC_EN_PIN			TOUCH_IIC_EN_PIN
 
 
-/**************TSM12_TOUCH ¼Ä´æÆ÷µØÖ·****************/
+/**************TSM12_TOUCH å¯„å­˜å™¨åœ°å€****************/
 
 #define TSM12_Sensitivity1		0x02
 #define	TSM12_Sensitivity2		0x03

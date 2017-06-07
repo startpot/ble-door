@@ -6,42 +6,43 @@
 #include <time.h>
 #include "pstorage.h"
 
-//´æ´¢µÄÔ¿³×
+//å­˜å‚¨çš„é’¥åŒ™
 struct key_store_struct
 {
-	uint32_t 	key_store;
-	uint16_t 	key_use_time;
+	uint8_t 	key_store[6];
+	uint16_t 	key_use_time;//æœ‰æ•ˆæ—¶é—´ï¼Œä»¥1åˆ†é’Ÿä¸ºå•ä½
 	uint8_t		control_bits;
 	uint8_t		key_vesion;
+	time_t		key_store_time;
 };
 
 
 
 #define SUPER_KEY_LENGTH		12
-//³¬¼¶¹ÜÀíÔ±ÃØÔ¿
-extern uint8_t	super_key[SUPER_KEY_LENGTH];
+//è¶…çº§ç®¡ç†å‘˜ç§˜é’¥
+extern char	super_key[SUPER_KEY_LENGTH];
 
-//¿ªÃÅ¼ÇÂ¼
+//å¼€é—¨è®°å½•
 struct door_open_record
 {
-	uint32_t	key_store_record;
-	time_t		door_open_time;//ÃÅ´ò¿ªµÄÊ±¼äs
+	uint8_t		key_store[6];
+	time_t		door_open_time;//é—¨æ‰“å¼€çš„æ—¶é—´s
 };
 
 /********************************************************
-*flash´æ´¢¿Õ¼äÕû¸öÒ»¸öblock_id
-*[0]´æ´¢²ÎÊı+[1]Ô¿³×¸öÊı+Ô¿³×¼ÇÂ¼(10)+[12]³¤¶È+¿ªÃÅ¼ÇÂ¼[30]
-* flashÖĞ¸÷¸ö´æ´¢Á¿µÄÆ«ÒÆµØÖ·ºÍ³¤¶È
+*flashå­˜å‚¨ç©ºé—´æ•´ä¸ªä¸€ä¸ªblock_id
+*[0]å­˜å‚¨å‚æ•°+[1]é’¥åŒ™ä¸ªæ•°+é’¥åŒ™è®°å½•(10)+[12]é•¿åº¦+å¼€é—¨è®°å½•[30]
+* flashä¸­å„ä¸ªå­˜å‚¨é‡çš„åç§»åœ°å€å’Œé•¿åº¦
 *********************************************************/
-#define BLOCK_STORE_SIZE			16
+#define BLOCK_STORE_SIZE			32
 
 /*********************************************************
-*Ä¬ÈÏµÄ²ÎÊı:(1byte)
-*			µç»ú×ª¶¯Ê±¼ä(OPEN_TIME)
-*			¿ªÃÅºóµÈ´ıÊ±¼ä(DOOR_OPEN_HOLD_TIME)
-*			·äÃùÆ÷Ïì¶¯´ÎÊı(BEEP_DIDI_NUMBER)
-*			ÁÁµÆÊ±¼ä(LED_LIGHT_TIME)
-*			ÃÜÂëĞ£¶Ô´ÎÊı(KEY_CHECK_NUMBER)
+*é»˜è®¤çš„å‚æ•°:(1byte)
+*			ç”µæœºè½¬åŠ¨æ—¶é—´(OPEN_TIME)
+*			å¼€é—¨åç­‰å¾…æ—¶é—´(DOOR_OPEN_HOLD_TIME)
+*			èœ‚é¸£å™¨å“åŠ¨æ¬¡æ•°(BEEP_DIDI_NUMBER)
+*			äº®ç¯æ—¶é—´(LED_LIGHT_TIME)
+*			å¯†ç æ ¡å¯¹æ¬¡æ•°(KEY_CHECK_NUMBER)
 **********************************************************/
 #define	DEFAULT_PARAMS_OFFSET		0
 #define DEFAULT_PARAMS_NUMBER		1
@@ -49,26 +50,36 @@ struct door_open_record
 #define SPUER_KEY_OFFSET			DEFAULT_PARAMS_OFFSET + DEFAULT_PARAMS_NUMBER
 #define SUPER_KEY_NUMBER			1
 
-#define	KEY_STORE_OFFSET			SPUER_KEY_OFFSET + SUPER_KEY_NUMBER
-#define KEY_STORE_LENGTH			1
+#define SEED_OFFSET							SPUER_KEY_OFFSET + SUPER_KEY_NUMBER
+#define SEED_NUMBER						1
+
+#define DEVICE_NAME_OFFSET		SEED_OFFSET + SEED_NUMBER
+#define DEVICE_NAME_NUMBER		1
+
+#define	KEY_STORE_OFFSET			DEVICE_NAME_OFFSET + DEVICE_NAME_NUMBER
+#define 	KEY_STORE_LENGTH			1
 #define	KEY_STORE_NUMBER			10
 
-#define	RECORD_OFFSET				KEY_STORE_OFFSET + KEY_STORE_LENGTH + KEY_STORE_NUMBER
-#define RECORD_LENGTH				1
+#define	RECORD_OFFSET					KEY_STORE_OFFSET + KEY_STORE_LENGTH + KEY_STORE_NUMBER
+#define 	RECORD_LENGTH					1
 #define	RECORD_NUMBER				30
 
 
-#define BLOCK_STORE_COUNT			DEFAULT_PARAMS_NUMBER + SUPER_KEY_NUMBER +\
-									KEY_STORE_LENGTH + KEY_STORE_NUMBER +\
-									RECORD_LENGTH + RECORD_NUMBER
+#define BLOCK_STORE_COUNT			DEFAULT_PARAMS_NUMBER + SUPER_KEY_NUMBER + SEED_NUMBER +\
+																		DEVICE_NAME_NUMBER + KEY_STORE_LENGTH + KEY_STORE_NUMBER +\
+																		RECORD_LENGTH + RECORD_NUMBER
 
 
-//´ÓflashÖĞ¶Á³öµÄÊı¾İ
+
+#define SEED_LENGTH					16
+
+//ä»flashä¸­è¯»å‡ºçš„æ•°æ®
 extern uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 extern uint8_t	flash_read_data[BLOCK_STORE_SIZE];
 
 
 extern pstorage_handle_t	block_id_flash_store;
+extern pstorage_handle_t	block_id_device_name;
 extern pstorage_handle_t	block_id_key_store;
 extern pstorage_handle_t	block_id_record;
 
@@ -92,7 +103,7 @@ void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
 					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read);
 
 void write_super_key(uint8_t *p_data);
-void key_store_write(struct key_store_struct *key_input);
+void key_store_write(struct key_store_struct *key_store_input);
 void record_write(struct door_open_record *open_record);
 
 #endif //INTER_FLASH_H__

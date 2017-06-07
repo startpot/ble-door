@@ -1,5 +1,3 @@
-
-
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -17,40 +15,40 @@ uint8_t BEEP_DIDI_NUMBER;
 uint8_t LED_LIGHT_TIME;
 uint8_t	DOOR_OPEN_HOLD_TIME;
 uint8_t	KEY_CHECK_NUMBER;
-uint8_t key_length_set;
+uint8_t KEY_LENGTH;
 
 
 void set_default_params(void)
 {
 	uint32_t err_code;
 
-	//ÉèÖÃ¶¯Ì¬ÃÜÂëµÄ³¤¶ÈÎª6Î»ASCII
-	key_length_set = 6;
+	//è®¾ç½®åŠ¨æ€å¯†ç çš„é•¿åº¦ä¸º6ä½ASCII
+	KEY_LENGTH = 6;
 	
-	//¶Á³öÉèÖÃµÄ²ÎÊı(ÅĞ¶ÁÊÇ·ñÊÇºóÆÚÉèÖÃµÄ,Èç¹û²»ÊÇ£¬Éè¶¨²ÎÊı)
-	//³õÊ¼»¯²ÎÊı
-	//([0x77(w£¬Èç¹ûÎªwÔòÒÑ¾­ÉèÖÃ²ÎÊı£¬Èç¹û²»ÊÇÔò³õÊ¼»¯²ÎÊı),
+	//è¯»å‡ºè®¾ç½®çš„å‚æ•°(åˆ¤è¯»æ˜¯å¦æ˜¯åæœŸè®¾ç½®çš„,å¦‚æœä¸æ˜¯ï¼Œè®¾å®šå‚æ•°)
+	//åˆå§‹åŒ–å‚æ•°
+	//([0x77(wï¼Œå¦‚æœä¸ºwåˆ™å·²ç»è®¾ç½®å‚æ•°ï¼Œå¦‚æœä¸æ˜¯åˆ™åˆå§‹åŒ–å‚æ•°),
 	//			25(OPEN_TIME *0.1s),10(DOOR_OPEN_HOLD_TIME *0.1s),
-	//			5(BEEP_DIDI_NUMBER ´ÎÊı)£¬5(LED_LIGHT_TIME *0.1s),
-	//			5(KEY_CHECK_NUMBER) ´ÎÊı]ºóÃæ²¹0)
+	//			5(BEEP_DIDI_NUMBER æ¬¡æ•°)ï¼Œ5(LED_LIGHT_TIME *0.1s),
+	//			5(KEY_CHECK_NUMBER) æ¬¡æ•°]åé¢è¡¥0)
 	err_code = pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)DEFAULT_PARAMS_OFFSET, &block_id_params);
 	APP_ERROR_CHECK(err_code);
 	pstorage_load(flash_store_params, &block_id_params, 8, 0);
 	if(flash_store_params[0] == 0x77)
 	{
-		OPEN_TIME = flash_store_params[1];//µç»ú×ª¶¯Ê±¼ä
-		DOOR_OPEN_HOLD_TIME = flash_store_params[2];//¿ªÃÅ±£³ÖÊ±¼ä
-		BEEP_DIDI_NUMBER = flash_store_params[3];//·äÃùÆ÷Ïì´ÎÊı
-		LED_LIGHT_TIME = flash_store_params[4];//µÆÁÁÆğµÄÊ±¼ä
-		KEY_CHECK_NUMBER = flash_store_params[5];//ÃÜÂë²âÊÔ´ÎÊı
+		OPEN_TIME = flash_store_params[1];//ç”µæœºè½¬åŠ¨æ—¶é—´
+		DOOR_OPEN_HOLD_TIME = flash_store_params[2];//å¼€é—¨ä¿æŒæ—¶é—´
+		BEEP_DIDI_NUMBER = flash_store_params[3];//èœ‚é¸£å™¨å“æ¬¡æ•°
+		LED_LIGHT_TIME = flash_store_params[4];//ç¯äº®èµ·çš„æ—¶é—´
+		KEY_CHECK_NUMBER = flash_store_params[5];//å¯†ç æµ‹è¯•æ¬¡æ•°
 	}
 	else
 	{
-		OPEN_TIME = 0x19;//µç»ú×ª¶¯Ê±¼ä
-		DOOR_OPEN_HOLD_TIME = 0x0a;//¿ªÃÅ±£³ÖÊ±¼ä
-		BEEP_DIDI_NUMBER = 0x05;//·äÃùÆ÷Ïì´ÎÊı
-		LED_LIGHT_TIME = 0x05;//µÆÁÁÆğµÄÊ±¼ä
-		KEY_CHECK_NUMBER = 0x05;//ÃÜÂë²âÊÔ´ÎÊı
+		OPEN_TIME = 0x19;//ç”µæœºè½¬åŠ¨æ—¶é—´
+		DOOR_OPEN_HOLD_TIME = 0x0a;//å¼€é—¨ä¿æŒæ—¶é—´
+		BEEP_DIDI_NUMBER = 0x05;//èœ‚é¸£å™¨å“æ¬¡æ•°
+		LED_LIGHT_TIME = 0x05;//ç¯äº®èµ·çš„æ—¶é—´
+		KEY_CHECK_NUMBER = 0x05;//å¯†ç æµ‹è¯•æ¬¡æ•°
 	}
 }
 

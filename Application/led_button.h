@@ -6,8 +6,13 @@
 #include <time.h>
 #include "app_timer.h"
 
-extern uint8_t 	key_store_set[8];
-extern uint8_t 	key_length_set;
+
+#include "inter_flash.h"
+
+//与动态口令相关的参量
+#define SM4_INTERVAL		60
+#define SM4_COUNTER			1234
+
 
 extern char key_express_value;
 
@@ -15,14 +20,20 @@ extern char key_express_value;
 extern char 	key_input[KEY_NUMBER];
 extern uint8_t 	key_input_site;
 
-//����������hex
-extern uint32_t key_input_check;
+//输入的密码的时间
 extern struct tm key_input_time_tm;
 extern time_t key_input_time_t;
-//�Աȶ�̬����ı���
-extern uint8_t key_store_tmp[4];
-extern uint32_t key_store_number_check;
+//种子的数组
+extern uint8_t seed[16];
+
+//对比动态密码的变量
+extern uint8_t SM4_challenge[4];
+extern uint8_t key_store_tmp[6];
 extern struct key_store_struct key_store_check;
+
+
+//存储在flash的密码
+extern uint8_t flash_key_store[BLOCK_STORE_SIZE];
 
 extern struct door_open_record		open_record_now;
 

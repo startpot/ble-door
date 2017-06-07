@@ -1,6 +1,6 @@
 /********************************
-*	³õÊ¼»¯LEDs
-*	³õÊ¼»¯I2CµÄint_pinºÍÖĞ¶Ï´¦Àíº¯Êı
+*	åˆå§‹åŒ–LEDs
+*	åˆå§‹åŒ–I2Cçš„int_pinå’Œä¸­æ–­å¤„ç†å‡½æ•°
 *********************************/
 
 
@@ -24,6 +24,8 @@
 #include "set_params.h"
 #include "inter_flash.h"
 #include "rtc_chip.h"
+#include "sm4_mcu.h"
+#include "sm4_dpwd.h"
 
 #define APP_GPIOTE_MAX_USERS		1
 
@@ -31,28 +33,34 @@ app_gpiote_user_id_t	m_app_gpiote_id;
 
 char key_express_value;
 
-//ÊäÈë°´¼üÖµ£¬µ±×÷ÊäÈëÃÜÂë
+//è¾“å…¥æŒ‰é”®å€¼ï¼Œå½“ä½œè¾“å…¥å¯†ç 
 char key_input[KEY_NUMBER];
 uint8_t key_input_site;
 
-//ÊäÈëµÄÃÜÂëµÄhex
-uint32_t key_input_check;
+//è¾“å…¥çš„å¯†ç çš„æ—¶é—´
 struct tm key_input_time_tm;
 time_t key_input_time_t;
-//¶Ô±È¶¯Ì¬ÃÜÂëµÄ±äÁ¿
-uint8_t key_store_tmp[4];
-uint32_t key_store_number_check;
+//ç§å­çš„æ•°ç»„
+uint8_t seed[16];
+
+//å¯¹æ¯”åŠ¨æ€å¯†ç çš„å˜é‡
+uint8_t SM4_challenge[4] = {0x31,0x30,0x33,0x36};
+uint8_t key_store_tmp[6];
+
 struct key_store_struct key_store_check;
 
+//å­˜å‚¨åœ¨flashçš„å¯†ç 
+uint8_t flash_key_store[BLOCK_STORE_SIZE];
 
-//¿ªËø¼ÇÂ¼È«¾Ö±äÁ¿
+
+///å¼€é”è®°å½•å…¨å±€å˜é‡
 struct door_open_record		open_record_now;
 
 
 
 /***********************************************
- *³õÊ¼»¯LED pins
- * ÉèÖÃLED PINS high(led light when pin is low)
+ *åˆå§‹åŒ–LED pins
+ * è®¾ç½®LED PINS high(led light when pin is low)
  **********************************************/
 void leds_init(void)
 {
@@ -64,11 +72,15 @@ void leds_init(void)
 		nrf_gpio_cfg_output( led_list[pin] );
 		nrf_gpio_pin_set( led_list[pin] );
 	}
+	
+#if defined(BLE_DOOR_DEBUG)	
 	printf("all leds set 1 (not lit)\r\n");
+#endif
+
 }
 
 /*******************************************
-*clear_all_key_flag,Çå³ıËùÒÔÓë°´¼üÓĞ¹ØµÄ±äÁ¿
+*æ¸…é™¤æ‰€æœ‰ä¸æŒ‰é”®æœ‰å…³çš„å˜é‡
 *******************************************/
 void clear_all_key_flag(void)
 {
@@ -76,7 +88,7 @@ void clear_all_key_flag(void)
 }
 
 /********************************
-*LEDµÈÁÁms
+*LEDç­‰äº®ms
 ********************************/
 void leds_on(uint8_t led_pin, uint32_t ms)
 {
@@ -90,7 +102,7 @@ void leds_on(uint8_t led_pin, uint32_t ms)
 
 
 /*****************
-*Ğ´Èë¼üÖµ
+*å†™å…¥é”®å€¼
 *****************/
 static	void write_key_expressed(void)
 {
@@ -103,7 +115,7 @@ static	void write_key_expressed(void)
 
 
 /********************
-*Çå³ıĞ´ÈëµÄ¼üÖµ
+*æ¸…é™¤å†™å…¥çš„é”®å€¼
 *********************/
 static void clear_key_expressed(void)
 {
@@ -119,164 +131,236 @@ static void clear_key_expressed(void)
 ********************/
 void ble_door_open(void)
 {
-	//ÁÁÂÌµÆ
+	//äº®ç»¿ç¯
 	leds_on(LED_13, LED_LIGHT_TIME);
-	//·äÃùÆ÷Ïì¼¸´Î(BEER_DIDI_NUMBER)
+	//èœ‚é¸£å™¨å“å‡ æ¬¡(BEER_DIDI_NUMBER)
 	beep_didi(BEEP_DIDI_NUMBER);
-	//¿ªËø
+	//å¼€é”
 	moto_open(OPEN_TIME);
 	nrf_delay_ms(DOOR_OPEN_HOLD_TIME * 100);
-	//·äÃùÆ÷Ïì
+	//èœ‚é¸£å™¨å“
 	beep_didi(BEEP_DIDI_NUMBER);
-	//»Ö¸´moto×´Ì¬
+	//æ¢å¤motoçŠ¶æ€
 	moto_close(OPEN_TIME);
 }
 
 
+static void check_keys(void)
+{
+	//è·å–æŒ‰ä¸‹å¼€é”é”®çš„æ—¶é—´
+	rtc_time_read(&key_input_time_tm);
+	key_input_time_t = mktime(&key_input_time_tm);
+		
+	//å¦‚æœæŒ‰é”®æ•°é‡å’Œè®¾ç½®è¶…çº§å¯†ç ä¸€è‡´
+	if(key_input_site == SUPER_KEY_LENGTH)
+	{
+		
+		inter_flash_read(flash_read_data, 16, SPUER_KEY_OFFSET, &block_id_flash_store);		
+				
+		if(flash_read_data[0] == 0x77)
+		{
+			memset(super_key, 0, 12);
+			memcpy(super_key, &flash_read_data[1],12);
+			if(strncasecmp(key_input,super_key, SUPER_KEY_LENGTH) == 0)
+			{
+				
+				ble_door_open();
+#if defined(BLE_DOOR_DEBUG)
+				printf("it is spuer key\r\n");
+				printf("door open\r\n");
+#endif
+			}
+			else
+			{
+				clear_key_expressed();
+#if defined(BLE_DOOR_DEBUG)
+				printf("clear all express button\r\n");
+#endif
+			}
+		}
+	}
+	//æ™®é€šå¯†ç 
+	else if(key_input_site == KEY_LENGTH)
+	{	//6ä½å¯†ç ï¼Œé¦–å…ˆè¿›è¡ŒåŠ¨æ€å¯†ç æ¯”å¯¹ï¼Œå†è¿›è¡Œæ™®é€šå¯†ç æ¯”å¯¹
+		
+		//åŠ¨æ€å¯†ç 
+		//è·å–ç§å­
+		inter_flash_read(flash_read_data, 32, SEED_OFFSET, &block_id_flash_store);
+		memset(seed, 0, 16);
+		if(flash_read_data[0] == 0x77)
+		{//è®¾ç½®äº†ç§å­
+			//è·å–ç§å­
+			memcpy(seed, &flash_read_data[1], 16);
+			
+			//è®¡ç®—KEY_CHECK_NUMBER *10æ¬¡æ•°
+			for(int i = 0; i<(KEY_CHECK_NUMBER * 10);i++)
+			{
+				SM4_DPasswd(seed, key_input_time_t, SM4_INTERVAL, SM4_COUNTER, SM4_challenge, key_store_tmp);
+				if(strncasecmp(key_input, (char *)key_store_tmp, KEY_LENGTH) == 0)
+				{//å¯†ç ç›¸åŒ
+					ble_door_open();
+#if defined(BLE_DOOR_DEBUG)
+					printf("door open\r\n");
+#endif
+					//è®°å½•
+					memset(flash_write_data, 0, 16);
+					memcpy(flash_write_data, key_input, 6);
+					memcpy(&flash_write_data[6], &key_input_time_t, 4);
+					record_write((struct door_open_record *)flash_write_data);
+				}
+				else
+				{
+					key_input_time_t = key_input_time_t - 60;
+				}						
+			}					
+		}
+		
+		//æ™®é€šå¯†ç 
+		//è·å–æ™®é€šå¯†ç çš„ä¸ªæ•°,å°ç«¯å­—èŠ‚
+		inter_flash_read((uint8_t *)key_store_length, 4, KEY_STORE_OFFSET, &block_id_flash_store);
+		for(int i=0; i<key_store_length; i++)
+		{
+			//è·å–å­˜å‚¨çš„å¯†ç 
+			inter_flash_read(flash_key_store, 32, (KEY_STORE_OFFSET + 1 + i), &block_id_flash_store);
+	
+			//è·å–å¯†ç çš„æ•°ç»„
+			memcpy(&key_store_check.key_store, flash_key_store, 6);
+			//è·å–å¯†ç çš„æœ‰æ•ˆæ—¶é—´
+			memcpy(&key_store_check.key_use_time, &flash_key_store[6], 2);
+			//è·å–å¯†ç çš„å­˜å‚¨æ—¶é—´
+			memcpy(&key_store_check.key_store_time,&flash_key_store[10], sizeof(time_t));
+					
+			//å¯¹æ¯”å¯†ç æ˜¯å¦ä¸€è‡´
+			if(strncasecmp(key_input, (char *)&key_store_check.key_store, 6) == 0)
+			{//å¯†ç ç›¸åŒï¼Œçœ‹æ˜¯å¦åœ¨æœ‰æ•ˆæ—¶é—´å†…
+				if((difftime(key_input_time_t, key_store_check.key_store_time) -\
+					((time_t)key_store_check.key_use_time * 60)) > 0)
+				{
+					ble_door_open();
+#if defined(BLE_DOOR_DEBUG)
+					printf("door open\r\n");
+#endif
+					//è®°å½•å¼€é—¨
+					memset(&open_record_now, 0, sizeof(struct door_open_record));
+					memcpy(&open_record_now.key_store, key_input, 6);
+					memcpy(&open_record_now.door_open_time, &key_input_time_t, 4);
+					record_write(&open_record_now);
+				}
+			}					
+		}				
+	}
+			
+	clear_key_expressed();
+#if defined(BLE_DOOR_DEBUG)
+	printf("clear all express button\r\n");
+#endif
+}
+
 /*****************************************
-*¼ìÑé°´ÏÂµÄ¼üÖµ£¬²¢¼ÇÂ¼£¬
-*Èç¹ûÊÇ¿ªËø¼ü(b)½øĞĞÃÜÂëĞ£Ñé
+*æ£€éªŒæŒ‰ä¸‹çš„é”®å€¼ï¼Œå¹¶è®°å½•ï¼Œ
+*å¦‚æœæ˜¯å¼€é”é”®(b)è¿›è¡Œå¯†ç æ ¡éªŒ
 ******************************************/
 static void check_key_express(char express_value)
 {
-	bool door_open = 0;
+//	bool door_open = 0;
 	switch(express_value)
 	{
-		//ÅĞ¶Ï°´¼ü£¬ÁÁµã0.5s
-		case '0'://°´ÏÂ0¼ü
+		//åˆ¤æ–­æŒ‰é”®ï¼Œäº®ç‚¹0.5s
+		case '0'://æŒ‰ä¸‹0é”®
 			leds_on(LED_8, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 0 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '1'://°´ÏÂ1¼ü
+		case '1'://æŒ‰ä¸‹1é”®
 			leds_on(LED_1, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 1 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '2'://°´ÏÂ2¼ü
+		case '2'://æŒ‰ä¸‹2é”®
 			leds_on(LED_5, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 2 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '3'://°´ÏÂ3¼ü
+		case '3'://æŒ‰ä¸‹3é”®
 			leds_on(LED_9, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 3 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '4'://°´ÏÂ4¼ü
+		case '4'://æŒ‰ä¸‹4é”®
 			leds_on(LED_2, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 4 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '5'://°´ÏÂ5¼ü
+		case '5'://æŒ‰ä¸‹5é”®
 			leds_on(LED_6, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 5 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '6'://°´ÏÂ6¼ü
+		case '6'://æŒ‰ä¸‹6é”®
 			leds_on(LED_10, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 6 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '7'://°´ÏÂ7¼ü
+		case '7'://æŒ‰ä¸‹7é”®
 			leds_on(LED_3, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 7 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '8'://°´ÏÂ8¼ü
+		case '8'://æŒ‰ä¸‹8é”®
 			leds_on(LED_7, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 8 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case '9'://°´ÏÂ9¼ü
+		case '9'://æŒ‰ä¸‹9é”®
 			leds_on(LED_11, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button 9 pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case 'a'://°´ÏÂ*¼ü
+		case 'a'://æŒ‰ä¸‹*é”®
 			leds_on(LED_4, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button * pressed\r\n");
+#endif
 			write_key_expressed();
 			clear_all_key_flag();
 			break;
-		case 'b'://°´ÏÂ #(¿ªËø) ¼ü
+		case 'b'://æŒ‰ä¸‹ #(å¼€é”) é”®
 			leds_on(LED_12, LED_LIGHT_TIME);
+#if defined(BLE_DOOR_DEBUG)
 			printf("button open pressed\r\n");
+#endif
 			clear_all_key_flag();
-			//½«ÊäÈëµÄÃÜÂë±ä»»Îªhex
-			for(int i=0; i<key_input_site; i++)
-			{
-				key_input_check = key_input_check + (key_input[i]*pow(10,(key_input_site -1 -i)));
-			}
-			rtc_time_read(&key_input_time_tm);
-			key_input_time_t = mktime(&key_input_time_tm);
-			//¼ÆËãÏÖÊ±µÄ¶¯Ì¬ÃÜÂë
-	
-			
-			
-			//Èç¹û°´¼üÊıÁ¿ºÍÉèÖÃ³¬¼¶ÃÜÂëÒ»ÖÂ
-			if(key_input_site == SUPER_KEY_LENGTH)
-			{
-				printf("it is spuer key\r\n");
-				inter_flash_read(flash_read_data, 16, SPUER_KEY_OFFSET, &block_id_flash_store);
-				
-				if(flash_read_data[0] == 0x77)
-				{
-					for(int i =0; i<12; i++)
-					{
-						if(key_input[i] != flash_read_data[i+1])
-						{
-							door_open = false;
-							goto check_door_open;
-						}
-						else
-							door_open = true;
-					}
-				
-check_door_open:		
-					if(door_open == true)
-					{
-						ble_door_open();
-						printf("door open\r\n");
-					}
-				}
-			}
-			else if(key_input_site == key_length_set)
-			{
-				//¶¯Ì¬ÃÜÂë
-				//
-				inter_flash_read(key_store_tmp, 4, KEY_STORE_OFFSET, &block_id_flash_store);
-				key_store_number_check = ((int)key_store_tmp[0] | (int)key_store_tmp[1]<<8 |\
-										   (int)key_store_tmp[2]<<16 | (int)key_store_tmp[3]<<24);
-				for(int i=0; i<key_store_number_check;i++)
-				{
-					inter_flash_read((uint8_t *)&key_store_check, 8, (KEY_STORE_OFFSET+1+i),\
-												&block_id_flash_store);
-					
-					//¶Á³öÃÜÂëºó£¬×ÔÖ¤ÃÜÂëµÄÓĞĞ§ĞÔ
-					
-					if(key_input_check == key_store_check.key_store)
-					{
-						ble_door_open();
-						printf("door open\r\n");
-					}
-						
-				}
-			}
-			
-
-			clear_key_expressed();
-			printf("clear all express button\r\n");
+			check_keys();
 			break;
 		default:
 				
@@ -293,22 +377,22 @@ void iic_int_handler(uint32_t event_pins_low_to_high, uint32_t event_pins_high_t
 	
 	if (event_pins_high_to_low & (1 << TOUCH_IIC_INT_PIN))
 	{
-		//ÖĞ¶ÏÓÉ¸ß±äµÍ
+		//ä¸­æ–­ç”±é«˜å˜ä½
 		key_express_value = (char)tsm12_key_read();
 		check_key_express(key_express_value);
 	} 
 }
 
 /*********************
-* ³õÊ¼»¯iic_int_pin
+* åˆå§‹åŒ–iic_int_pin
 ********************/
 void iic_int_buttons_init(void)
 {
 	uint32_t err_code;
     
-	//³õÊ¼»¯¼üÖµ£¬±äÁ¿
+	//åˆå§‹åŒ–é”®å€¼ï¼Œå˜é‡
 	key_express_value = 0x0;
-	//³õÊ¼»¯°´¼ü¼ÇÂ¼,¼°°´¼üÖµ±£´æÎ»ÖÃ
+	//åˆå§‹åŒ–æŒ‰é”®è®°å½•,åŠæŒ‰é”®å€¼ä¿å­˜ä½ç½®
 	clear_key_expressed();
 		
 	uint32_t   low_to_high_bitmask = 0x00000000;
@@ -327,5 +411,7 @@ void iic_int_buttons_init(void)
     
 	err_code = app_gpiote_user_enable(m_app_gpiote_id);
 	APP_ERROR_CHECK(err_code);
+#if defined(BLE_DOOR_DEBUG)
 	printf("touch button interrupte init success\r\n");
+#endif
 }

@@ -24,17 +24,20 @@
 #include "app_util_platform.h"
 
 #include "ble_init.h"
+#include "inter_flash.h"
 
 dm_application_instance_t 				m_app_handle;
-dm_handle_t								m_dm_handle;
+dm_handle_t											m_dm_handle;
 
 ble_uuid_t                       	m_adv_uuids[] = {{BLE_UUID_NUS_SERVICE, NUS_SERVICE_UUID_TYPE}};
-uint16_t                         	m_conn_handle = BLE_CONN_HANDLE_INVALID;
+uint16_t                         		m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
-ble_nus_t                        	m_nus;//ble ·şÎñ×¢²áµÄnus·şÎñ
+ble_nus_t                        	m_nus;//ble æœåŠ¡æ³¨å†Œçš„nusæœåŠ¡
 
-//×Ô¶¨ÒåµÄnus·şÎñÖĞdata_handleº¯ÊıÖĞÔİ´æµÄÊı¾İ£¬ĞèÒª½»¸øcheckÃüÁî
-bool    		operate_code_setted = false;
+uint8_t device_name[20];//[0]æ ‡è®°ä½0x77ï¼Œ[1]é•¿åº¦[2...]åå­—
+
+//è‡ªå®šä¹‰çš„nusæœåŠ¡ä¸­data_handleå‡½æ•°ä¸­æš‚å­˜çš„æ•°æ®ï¼Œéœ€è¦äº¤ç»™checkå‘½ä»¤
+bool    			operate_code_setted = false;
 uint8_t			nus_data_array[BLE_NUS_MAX_DATA_LEN];
 uint16_t  		nus_data_array_length;
 
@@ -86,7 +89,7 @@ void application_timers_start(void)
 
 
 /**************************************
-* GAP³õÊ¼»¯
+* GAPåˆå§‹åŒ–
 **************************************/
 void gap_params_init(void)
 {
@@ -96,11 +99,28 @@ void gap_params_init(void)
 
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
     
-    err_code = sd_ble_gap_device_name_set(&sec_mode,\
+	//å¦‚æœflashä¸­å­˜çš„åå­—æœ‰æ•ˆï¼Œåˆ™ä½¿ç”¨flashä¸­åå­—
+	if(device_name[0] == 0x77)
+	{
+		//æœ‰æ•ˆï¼Œä½¿ç”¨æ–°åå­—ï¼Œdevice_name[1]ä¸ºé•¿åº¦
+#if defined(BLE_DOOR_DEBUG)
+		printf("update device name \r\n");
+#endif
+		err_code = sd_ble_gap_device_name_set(&sec_mode,\
+											(const uint8_t *)device_name +2,\
+											device_name[1]);
+	}
+	else
+	{
+#if defined(BLE_DOOR_DEBUG)
+		printf("default device name \r\n");
+#endif
+		err_code = sd_ble_gap_device_name_set(&sec_mode,\
                                           (const uint8_t *) DEVICE_NAME,\
                                           strlen(DEVICE_NAME));
-    APP_ERROR_CHECK(err_code);
-
+	}
+	APP_ERROR_CHECK(err_code);
+	
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
 
     gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
@@ -115,14 +135,17 @@ void gap_params_init(void)
 
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
-	//½«»ñÈ¡µÄÖ¸Áî£¬Í¨¹ıUART·¢ËÍ³öÈ¥£¬ÓÃ°å×ÓµÄUART×öBLEµÄnus serviceµÄµ÷ÊÔ¿Ú
+
+#if defined(BLE_DOOR_DEBUG)
+	//å°†è·å–çš„æŒ‡ä»¤ï¼Œé€šè¿‡UARTå‘é€å‡ºå»ï¼Œç”¨æ¿å­çš„UARTåšBLEçš„nus serviceçš„è°ƒè¯•å£
 	for (uint32_t i = 0; i < length; i++)
 	{
 		while(app_uart_put(p_data[i]) != NRF_SUCCESS);
 	}
 	while(app_uart_put('\n') != NRF_SUCCESS);
+#endif
 	
-	//½«»ñÈ¡µÄÊı¾İ´æµ½È«¾Ö±äÁ¿£¬¹©operate_code_checkº¯ÊıÓÃ
+	//å°†è·å–çš„æ•°æ®å­˜åˆ°å…¨å±€å˜é‡ï¼Œä¾›operate_code_checkå‡½æ•°ç”¨
 	for(int i = 0; i <length; i++)
 	{
 		nus_data_array[i] = p_data[i];
@@ -132,7 +155,7 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 }
 
 /*******************************************************
-* ×¢²áSD·şÎñuart ºÍdevice information
+* æ³¨å†ŒSDæœåŠ¡uart å’Œdevice information
  ******************************************************/
 void services_init(void)
 {
@@ -183,7 +206,7 @@ static void conn_params_error_handler(uint32_t nrf_error)
 
 
 /******************
-* ³õÊ¼»¯Á¬½Ó²ÎÊı
+* åˆå§‹åŒ–è¿æ¥å‚æ•°
 *******************/
 void conn_params_init(void)
 {
@@ -260,14 +283,16 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 			dm_device_delete_all(&m_app_handle);
 			break;
         case BLE_GAP_EVT_AUTH_STATUS:
-			//ÅĞ¶ÏÅä¶ÔÊÇ·ñ³É¹¦£¬Èç¹û²»³É¹¦¶Ï¿ªÁ¬½Ó£¬´Ó¶ø×èÖ¹ÆäËûÈËÈÎÒâÁ¬½Ó
+			//åˆ¤æ–­é…å¯¹æ˜¯å¦æˆåŠŸï¼Œå¦‚æœä¸æˆåŠŸæ–­å¼€è¿æ¥ï¼Œä»è€Œé˜»æ­¢å…¶ä»–äººä»»æ„è¿æ¥
 			if(p_ble_evt->evt.gap_evt.params.auth_status.auth_status != BLE_GAP_SEC_STATUS_SUCCESS)
 			{
 				sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
 			}
 			else
 			{
+#if defined(BLE_DOOR_DEBUG)
 				printf("pair success\r\n");
+#endif
 			}
 			break;
 		case BLE_GATTS_EVT_SYS_ATTR_MISSING:
@@ -281,14 +306,50 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             break;
     }
 }
+/******************************************************
+*äº‹ä»¶å¤„ç†å‡½æ•°ï¼Œå¤„ç†æ‰‹æœºå‘è¿‡æ¥çš„æ–°åå­—
+*******************************************************/
+static void device_name_change(ble_evt_t * p_ble_evt)
+{
+	ble_gatts_evt_write_t * p_evt_write = &p_ble_evt->evt.gatts_evt.params.write;
+	
+	//é€šè¿‡UUIDæ¥åˆ¤æ–­äº‹ä»¶æ˜¯ä¸æ˜¯å†™Generic AccessæœåŠ¡ä¸­çš„åå­—å±æ€§
+	 if((p_evt_write->context.char_uuid.uuid == BLE_UUID_GAP_CHARACTERISTIC_DEVICE_NAME) && \
+					(p_ble_evt->header.evt_id == BLE_GATTS_EVT_WRITE))
+	 {
+#if defined(BLE_DOOR_DEBUG)
+		printf("device name change\r\n");
+#endif
+		device_name[0] = 0x77;
+		device_name[1] = p_evt_write->len;
+		memcpy(device_name + 2, p_evt_write->data, p_evt_write->len);
+		 
+		//å°†è·å–çš„åå­—å­˜å‚¨åœ¨flash
+		pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)DEVICE_NAME_OFFSET, &block_id_device_name);
+		pstorage_clear(&block_id_device_name, DEVICE_NAME_SIZE);
+		pstorage_store(&block_id_device_name, device_name, DEVICE_NAME_SIZE, 0);
+	 }
+}
+
+//å› ä¸ºå¹¿æ’­å‡½æ•°æ˜¯åœ¨åé¢å®šä¹‰çš„ï¼Œä½¿ç”¨çš„è¯ï¼Œå…ˆå®šä¹‰
+void advertising_init(void);
 
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
+	//å¢åŠ æ¥å—device_nameçš„äº‹ä»¶å¤„ç†å‡½æ•°
+	device_name_change(p_ble_evt);
+	
+	//åœ¨æ–­å¼€è¿æ¥äº‹ä»¶åï¼Œåˆå§‹åŒ–å¹¿æ’­æ•°æ®
+	if(p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED)
+	{
+		advertising_init();
+	}
+	
 	dm_ble_evt_handler(p_ble_evt);
 	ble_conn_params_on_ble_evt(p_ble_evt);
 	on_ble_evt(p_ble_evt);
 	ble_advertising_on_ble_evt(p_ble_evt);
-	//×Ô¼ºµÄ·şÎñ
+	//è‡ªå·±çš„æœåŠ¡
 	ble_nus_on_ble_evt(&m_nus, p_ble_evt);
 }
 
@@ -300,8 +361,8 @@ static void sys_evt_dispatch(uint32_t sys_evt)
 
 
 /****************************
-* ³õÊ¼»¯BLE,¼ì²éAPPµØÖ·£¬
-* ×¢²áBLEÖĞ¶Ïº¯ÊıºÍSYSÖĞ¶Ï
+* åˆå§‹åŒ–BLE,æ£€æŸ¥APPåœ°å€ï¼Œ
+* æ³¨å†ŒBLEä¸­æ–­å‡½æ•°å’ŒSYSä¸­æ–­
 *****************************/
 void ble_stack_init(void)
 {
@@ -359,7 +420,7 @@ void advertising_init(void)
 
 
 /***********************************
-*Ö÷º¯ÊıÖĞ£¬µÍ¹¦ºÄ×´Ì¬£¬µÈ´ıevent
+*ä¸»å‡½æ•°ä¸­ï¼Œä½åŠŸè€—çŠ¶æ€ï¼Œç­‰å¾…event
 ************************************/
 
 void power_manage(void)

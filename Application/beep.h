@@ -6,10 +6,10 @@
 #include <stdbool.h>
 
 
-#define	BEEP_OPEN			500		//·äÃùÆ÷´ò¿ªÊ±¼ä(us)
-#define	BEEP_CLOSE		500		//·äÃùÆ÷¹Ø±ÕÊ±¼ä(us)
+#define	BEEP_OPEN			500		//èœ‚é¸£å™¨æ‰“å¼€æ—¶é—´(us)
+#define	BEEP_CLOSE		500		//èœ‚é¸£å™¨å…³é—­æ—¶é—´(us)
 
-#define BEEP_DIDI_ONCE_TIME	50	//·äÃùÆ÷·¢³öÒ»´ÎàÖÉù
+#define BEEP_DIDI_ONCE_TIME	50	//èœ‚é¸£å™¨å‘å‡ºä¸€æ¬¡å˜€å£°
 
 void beep_init(void);
 void beep_didi(uint8_t number);
