@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
+
 #include "nordic_common.h"
 #include "bsp.h"
 #include "nrf.h"
@@ -34,6 +35,7 @@ uint16_t                         		m_conn_handle = BLE_CONN_HANDLE_INVALID;
 
 ble_nus_t                        	m_nus;//ble 服务注册的nus服务
 
+uint8_t mac[8];//第一位：标志位，第二位：长度
 uint8_t device_name[20];//[0]标记位0x77，[1]长度[2...]名字
 
 //自定义的nus服务中data_handle函数中暂存的数据，需要交给check命令
@@ -41,12 +43,20 @@ bool    			operate_code_setted = false;
 uint8_t			nus_data_array[BLE_NUS_MAX_DATA_LEN];
 uint16_t  		nus_data_array_length;
 
-
+/**********************************************
+*nrf回调函数
+*in		line_num		错误行数
+			p_file_name	错误文件名称
+**********************************************/
 void assert_nrf_callback(uint16_t line_num, const uint8_t * p_file_name)
 {
     app_error_handler(DEAD_BEEF, line_num, p_file_name);
 }
 
+/**************************************************
+*配对超时处理函数
+*in：		p_context	超时描述
+**************************************************/
 static void sec_req_timeout_handler(void * p_context)
 {
     uint32_t             err_code;
@@ -66,6 +76,9 @@ static void sec_req_timeout_handler(void * p_context)
     }
 }
 
+/***************************************************
+*定时器初始化
+****************************************************/
 void timers_init(void)
 {
 	uint32_t err_code;
@@ -79,6 +92,9 @@ void timers_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+/******************************
+*定时器使能
+******************************/
 void application_timers_start(void)
 {
     /* YOUR_JOB: Start your timers. below is an example of how to start a timer.
@@ -86,7 +102,6 @@ void application_timers_start(void)
     err_code = app_timer_start(m_app_timer_id, TIMER_INTERVAL, NULL);
     APP_ERROR_CHECK(err_code); */
 }
-
 
 /**************************************
 * GAP初始化
@@ -132,7 +147,12 @@ void gap_params_init(void)
     APP_ERROR_CHECK(err_code);										 
 }
 
-
+/***************************************************************************
+*BLE uart服务处理函数
+*in：		*p_nus		uart服务
+*				p_data		ble uart服务接受到的数据指针
+				length			数据的长度
+***************************************************************************/
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
 
@@ -187,7 +207,10 @@ void services_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
+/*****************************************
+*连接参数管理处理函数
+*in：		*p_evt	连接参数指针
+*****************************************/
 static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
 {
     uint32_t err_code;
@@ -199,15 +222,17 @@ static void on_conn_params_evt(ble_conn_params_evt_t * p_evt)
     }
 }
 
+/**********************************************
+*连接参数初始化错误处理函数
+***********************************************/
 static void conn_params_error_handler(uint32_t nrf_error)
 {
     APP_ERROR_HANDLER(nrf_error);
 }
 
-
-/******************
+/***********************************************
 * 初始化连接参数
-*******************/
+**********************************************/
 void conn_params_init(void)
 {
     uint32_t               err_code;
@@ -228,9 +253,8 @@ void conn_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
 /***********************************************
-* Function for putting the chip into sleep mode.
+* 芯片进入低功耗
 ************************************************/
 static void sleep_mode_enter(void)
 {
@@ -246,7 +270,9 @@ static void sleep_mode_enter(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
+/*******************************************
+*广播的处理函数
+********************************************/
 static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 {
     uint32_t err_code;
@@ -265,8 +291,9 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
     }
 }
 
-
-
+/******************************
+*协议栈处理函数
+*******************************/
 static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
     uint32_t err_code = NRF_SUCCESS;              
@@ -334,6 +361,9 @@ static void device_name_change(ble_evt_t * p_ble_evt)
 //因为广播函数是在后面定义的，使用的话，先定义
 void advertising_init(void);
 
+/************************************************
+*协议栈事件分发函数
+************************************************/
 static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 {
 	//增加接受device_name的事件处理函数
@@ -353,12 +383,14 @@ static void ble_evt_dispatch(ble_evt_t * p_ble_evt)
 	ble_nus_on_ble_evt(&m_nus, p_ble_evt);
 }
 
+/***************************************************
+*系统事件分发函数
+**************************************************/
 static void sys_evt_dispatch(uint32_t sys_evt)
 {
 	pstorage_sys_event_handler(sys_evt);
 	ble_advertising_on_sys_evt(sys_evt);
 }
-
 
 /****************************
 * 初始化BLE,检查APP地址，
@@ -392,6 +424,9 @@ void ble_stack_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+/*******************************************
+*广播初始化函数
+********************************************/
 void advertising_init(void)
 {
     uint32_t      err_code;
@@ -417,20 +452,18 @@ void advertising_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
-
-
-/***********************************
+/***********************************************
 *主函数中，低功耗状态，等待event
-************************************/
-
+***********************************************/
 void power_manage(void)
 {
 	 uint32_t err_code = sd_app_evt_wait();
 	 APP_ERROR_CHECK(err_code);	
 }
 
-
-
+/*****************************************************
+*DM处理函数
+******************************************************/
 static uint32_t device_manager_evt_handler(dm_handle_t const * p_handle,
                                            dm_event_t const  * p_event,
                                            ret_code_t        event_result)
@@ -480,12 +513,11 @@ static uint32_t device_manager_evt_handler(dm_handle_t const * p_handle,
     return NRF_SUCCESS;
 }
 
-
-/**@brief Function for the Device Manager initialization.
- *
- * @param[in] erase_bonds  Indicates whether bonding information should be cleared from
+/************************************************************************************************
+ *DM初始化
+ *in：	erase_bonds  Indicates whether bonding information should be cleared from
  *                         persistent storage during initialization of the Device Manager.
- */
+ ***********************************************************************************************/
 void device_manager_init(bool erase_bonds)
 {
     uint32_t               err_code;
@@ -514,6 +546,9 @@ void device_manager_init(bool erase_bonds)
     APP_ERROR_CHECK(err_code);
 }
 
+/********************************************************
+* BLE芯片的uart口输入数据处理函数
+*********************************************************/
 static void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
@@ -551,6 +586,9 @@ static void uart_event_handle(app_uart_evt_t * p_event)
     }
 }
 
+/**********************************************
+*芯片uart口初始化
+***********************************************/
 void uart_init(void)
 {
     uint32_t                     err_code;
@@ -573,4 +611,3 @@ void uart_init(void)
                        err_code);
     APP_ERROR_CHECK(err_code);
 }
-

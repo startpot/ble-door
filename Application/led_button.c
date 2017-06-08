@@ -2,14 +2,13 @@
 *	初始化LEDs
 *	初始化I2C的int_pin和中断处理函数
 *********************************/
-
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
+
 #include "nrf_delay.h"
 #include "nrf_gpio.h"
 #include "boards.h"
@@ -40,22 +39,14 @@ uint8_t key_input_site;
 //输入的密码的时间
 struct tm key_input_time_tm;
 time_t key_input_time_t;
-//种子的数组
-uint8_t seed[16];
-
-//对比动态密码的变量
-uint8_t SM4_challenge[4] = {0x31,0x30,0x33,0x36};
-uint8_t key_store_tmp[6];
 
 struct key_store_struct key_store_check;
 
 //存储在flash的密码
 uint8_t flash_key_store[BLOCK_STORE_SIZE];
 
-
 ///开锁记录全局变量
 struct door_open_record		open_record_now;
-
 
 
 /***********************************************
@@ -74,22 +65,16 @@ void leds_init(void)
 	}
 	
 #if defined(BLE_DOOR_DEBUG)	
-	printf("all leds set 1 (not lit)\r\n");
+	printf("all leds not lit\r\n");
 #endif
 
 }
 
-/*******************************************
-*清除所有与按键有关的变量
-*******************************************/
-void clear_all_key_flag(void)
-{
-	key_express_value = 0x0;
-}
-
-/********************************
+/***********************************************
 *LED等亮ms
-********************************/
+*in:	led_pin	操作的led引脚
+		ms			led亮起的时间，单位0.1s
+***********************************************/
 void leds_on(uint8_t led_pin, uint32_t ms)
 {
 	if(((1<<led_pin) & LEDS_MASK) >>led_pin == 1)
@@ -100,11 +85,10 @@ void leds_on(uint8_t led_pin, uint32_t ms)
 	}
 }
 
-
-/*****************
+/************************************************
 *写入键值
-*****************/
-static	void write_key_expressed(void)
+************************************************/
+static void write_key_expressed(void)
 {
 	if(key_input_site < KEY_NUMBER)
 	{
@@ -113,10 +97,9 @@ static	void write_key_expressed(void)
 	}
 }
 
-
-/********************
+/***********************************************
 *清除写入的键值
-*********************/
+***********************************************/
 static void clear_key_expressed(void)
 {
 	for(int i = 0; i < KEY_NUMBER; i++)
@@ -126,9 +109,9 @@ static void clear_key_expressed(void)
 	key_input_site = 0x0;
 }
 
-/********************
-*ble_door_open
-********************/
+/***********************************************
+*门打开函数
+***********************************************/
 void ble_door_open(void)
 {
 	//亮绿灯
@@ -144,6 +127,9 @@ void ble_door_open(void)
 	moto_close(OPEN_TIME);
 }
 
+/**************************************************************
+*检验所有按下的键值
+**************************************************************/
 
 static void check_keys(void)
 {
@@ -153,28 +139,18 @@ static void check_keys(void)
 		
 	//如果按键数量和设置超级密码一致
 	if(key_input_site == SUPER_KEY_LENGTH)
-	{
-		
+	{	
 		inter_flash_read(flash_read_data, 16, SPUER_KEY_OFFSET, &block_id_flash_store);		
-				
 		if(flash_read_data[0] == 0x77)
 		{
 			memset(super_key, 0, 12);
 			memcpy(super_key, &flash_read_data[1],12);
 			if(strncasecmp(key_input,super_key, SUPER_KEY_LENGTH) == 0)
 			{
-				
 				ble_door_open();
 #if defined(BLE_DOOR_DEBUG)
 				printf("it is spuer key\r\n");
 				printf("door open\r\n");
-#endif
-			}
-			else
-			{
-				clear_key_expressed();
-#if defined(BLE_DOOR_DEBUG)
-				printf("clear all express button\r\n");
 #endif
 			}
 		}
@@ -183,13 +159,12 @@ static void check_keys(void)
 	else if(key_input_site == KEY_LENGTH)
 	{	//6位密码，首先进行动态密码比对，再进行普通密码比对
 		
-		//动态密码
-		//获取种子
+		//动态密码，获取种子
 		inter_flash_read(flash_read_data, 32, SEED_OFFSET, &block_id_flash_store);
-		memset(seed, 0, 16);
 		if(flash_read_data[0] == 0x77)
 		{//设置了种子
-			//获取种子
+			//获取种子16位，128bit
+			memset(seed, 0, 16);
 			memcpy(seed, &flash_read_data[1], 16);
 			
 			//计算KEY_CHECK_NUMBER *10次数
@@ -200,13 +175,15 @@ static void check_keys(void)
 				{//密码相同
 					ble_door_open();
 #if defined(BLE_DOOR_DEBUG)
+					printf("it is a dynamic key auto set\r\n");
 					printf("door open\r\n");
 #endif
-					//记录
-					memset(flash_write_data, 0, 16);
-					memcpy(flash_write_data, key_input, 6);
-					memcpy(&flash_write_data[6], &key_input_time_t, 4);
-					record_write((struct door_open_record *)flash_write_data);
+					//记录开门
+					memset(&open_record_now, 0, sizeof(struct door_open_record));
+					memcpy(&open_record_now.key_store, key_input, 6);
+					memcpy(&open_record_now.door_open_time, &key_input_time_t, 4);
+					record_write(&open_record_now);
+					goto clear_keys_input;
 				}
 				else
 				{
@@ -218,38 +195,37 @@ static void check_keys(void)
 		//普通密码
 		//获取普通密码的个数,小端字节
 		inter_flash_read((uint8_t *)key_store_length, 4, KEY_STORE_OFFSET, &block_id_flash_store);
-		for(int i=0; i<key_store_length; i++)
+		if(key_store_length >0)
 		{
-			//获取存储的密码
-			inter_flash_read(flash_key_store, 32, (KEY_STORE_OFFSET + 1 + i), &block_id_flash_store);
-	
-			//获取密码的数组
-			memcpy(&key_store_check.key_store, flash_key_store, 6);
-			//获取密码的有效时间
-			memcpy(&key_store_check.key_use_time, &flash_key_store[6], 2);
-			//获取密码的存储时间
-			memcpy(&key_store_check.key_store_time,&flash_key_store[10], sizeof(time_t));
-					
-			//对比密码是否一致
-			if(strncasecmp(key_input, (char *)&key_store_check.key_store, 6) == 0)
-			{//密码相同，看是否在有效时间内
-				if((difftime(key_input_time_t, key_store_check.key_store_time) -\
-					((time_t)key_store_check.key_use_time * 60)) > 0)
-				{
-					ble_door_open();
+			for(int i=0; i<key_store_length; i++)
+			{
+				//获取存储的密码
+				inter_flash_read((uint8_t *)&key_store_check, sizeof(struct key_store_struct), \
+													(KEY_STORE_OFFSET + 1 + i), &block_id_flash_store);
+				//对比密码是否一致
+				if(strncasecmp(key_input, (char *)&key_store_check.key_store, 6) == 0)
+				{//密码相同，看是否在有效时间内
+					if((difftime(key_input_time_t, key_store_check.key_store_time) -\
+								((time_t)key_store_check.key_use_time * 60)) > 0)
+					{
+						ble_door_open();
 #if defined(BLE_DOOR_DEBUG)
-					printf("door open\r\n");
+						printf("it is a dynamic key user set\r\n");
+						printf("door open\r\n");
 #endif
-					//记录开门
-					memset(&open_record_now, 0, sizeof(struct door_open_record));
-					memcpy(&open_record_now.key_store, key_input, 6);
-					memcpy(&open_record_now.door_open_time, &key_input_time_t, 4);
-					record_write(&open_record_now);
-				}
-			}					
-		}				
+						//记录开门
+						memset(&open_record_now, 0, sizeof(struct door_open_record));
+						memcpy(&open_record_now.key_store, key_input, 6);
+						memcpy(&open_record_now.door_open_time, &key_input_time_t, 4);
+						record_write(&open_record_now);
+					}
+				}					
+			}
+		}		
 	}
-			
+
+clear_keys_input:
+	//判断完输入的按键序列后，删除所有按键值
 	clear_key_expressed();
 #if defined(BLE_DOOR_DEBUG)
 	printf("clear all express button\r\n");
@@ -259,10 +235,11 @@ static void check_keys(void)
 /*****************************************
 *检验按下的键值，并记录，
 *如果是开锁键(b)进行密码校验
+*in：	express_value	按下的键值
 ******************************************/
 static void check_key_express(char express_value)
 {
-//	bool door_open = 0;
+
 	switch(express_value)
 	{
 		//判断按键，亮点0.5s
@@ -272,7 +249,6 @@ static void check_key_express(char express_value)
 			printf("button 0 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '1'://按下1键
 			leds_on(LED_1, LED_LIGHT_TIME);
@@ -280,7 +256,6 @@ static void check_key_express(char express_value)
 			printf("button 1 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '2'://按下2键
 			leds_on(LED_5, LED_LIGHT_TIME);
@@ -288,7 +263,6 @@ static void check_key_express(char express_value)
 			printf("button 2 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '3'://按下3键
 			leds_on(LED_9, LED_LIGHT_TIME);
@@ -296,7 +270,6 @@ static void check_key_express(char express_value)
 			printf("button 3 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '4'://按下4键
 			leds_on(LED_2, LED_LIGHT_TIME);
@@ -304,7 +277,6 @@ static void check_key_express(char express_value)
 			printf("button 4 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '5'://按下5键
 			leds_on(LED_6, LED_LIGHT_TIME);
@@ -312,7 +284,6 @@ static void check_key_express(char express_value)
 			printf("button 5 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '6'://按下6键
 			leds_on(LED_10, LED_LIGHT_TIME);
@@ -320,7 +291,6 @@ static void check_key_express(char express_value)
 			printf("button 6 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '7'://按下7键
 			leds_on(LED_3, LED_LIGHT_TIME);
@@ -328,7 +298,6 @@ static void check_key_express(char express_value)
 			printf("button 7 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '8'://按下8键
 			leds_on(LED_7, LED_LIGHT_TIME);
@@ -336,7 +305,6 @@ static void check_key_express(char express_value)
 			printf("button 8 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case '9'://按下9键
 			leds_on(LED_11, LED_LIGHT_TIME);
@@ -344,33 +312,33 @@ static void check_key_express(char express_value)
 			printf("button 9 pressed\r\n");
 #endif
 			write_key_expressed();
-			clear_all_key_flag();
 			break;
 		case 'a'://按下*键
 			leds_on(LED_4, LED_LIGHT_TIME);
 #if defined(BLE_DOOR_DEBUG)
 			printf("button * pressed\r\n");
 #endif
-			write_key_expressed();
-			clear_all_key_flag();
+		//	write_key_expressed();
 			break;
 		case 'b'://按下 #(开锁) 键
 			leds_on(LED_12, LED_LIGHT_TIME);
 #if defined(BLE_DOOR_DEBUG)
 			printf("button open pressed\r\n");
 #endif
-			clear_all_key_flag();
 			check_keys();
 			break;
 		default:
 				
 			break;
 	}
+		
 }
 
-/*******************************
-*i2c_int_handler
-*******************************/
+/**************************************************************
+*触摸屏中断处理函数
+*in：	event_pins_low_to_high	状态由低到高的引脚
+*			event_pins_high_to_low	状态由高到低的引脚
+**************************************************************/
 void iic_int_handler(uint32_t event_pins_low_to_high, uint32_t event_pins_high_to_low)
 {
 	
@@ -383,9 +351,10 @@ void iic_int_handler(uint32_t event_pins_low_to_high, uint32_t event_pins_high_t
 	} 
 }
 
-/*********************
-* 初始化iic_int_pin
-********************/
+/***************************************************************
+* 初始化触摸屏中断引脚
+*in：	none
+***************************************************************/
 void iic_int_buttons_init(void)
 {
 	uint32_t err_code;
@@ -412,6 +381,6 @@ void iic_int_buttons_init(void)
 	err_code = app_gpiote_user_enable(m_app_gpiote_id);
 	APP_ERROR_CHECK(err_code);
 #if defined(BLE_DOOR_DEBUG)
-	printf("touch button interrupte init success\r\n");
+	printf("touch button int init success\r\n");
 #endif
 }

@@ -1,7 +1,7 @@
 /**************************************************
 *	触摸按键分布
 *	T8---1			T9---2			T10--3
-*	T7---4			T12--5			T11--6
+*	T7---4			T12--5		T11--6
 *	T5---7			T1---8			T2---9
 *	T6---*			T4---0			T3---#
 *(#就是开锁键)
@@ -27,7 +27,8 @@ uint8_t key_value;
 nrf_drv_twi_t	m_twi_master_touch	= NRF_DRV_TWI_INSTANCE(1); //指定TWI1
 
 /***********************************************
-*初始化IIC
+*初始化触摸屏
+*in：	none
 ************************************************/
 ret_code_t touch_iic_init(void)
 {
@@ -54,7 +55,7 @@ ret_code_t touch_iic_init(void)
 }
 
 /**********************
-*tsm12_en_start()
+*触摸屏使能
 *********************/
 void tsm12_en_start(void)
 {	
@@ -64,7 +65,7 @@ void tsm12_en_start(void)
 }
 
 /*************************
-*tsm12_en_stop
+*触摸屏停止
 *************************/
 void tsm12_en_stop(void)
 {
@@ -74,8 +75,10 @@ void tsm12_en_stop(void)
 }
 
 /**************************************
-*i2c_device_write_byte
-*写某个地址的数据
+*往触摸屏的写某个地址的数据
+*in：address		地址
+		data			数据
+*out：	ret			0成功
 ****************************************/
 ret_code_t touch_i2c_device_write_byte(uint8_t address, uint8_t data)
 {
@@ -86,10 +89,13 @@ ret_code_t touch_i2c_device_write_byte(uint8_t address, uint8_t data)
 	return ret;
 }
 
-/************************************
-*i2c_device_read_byte
-*从某个地址开始读数据
-*************************************/
+/*************************************************************
+*从触摸屏的某个地址开始读数据
+*in：	address		地址
+			*p_read_byte		读出数据的地址指针
+			length				读出数据的长度
+*out：	ret			0成功
+**************************************************************/
 ret_code_t touch_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uint8_t length)
 {	
 	ret_code_t ret;
@@ -113,7 +119,8 @@ ret_code_t touch_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uin
 }
 
 /******************************************
-*初始化IIC芯片
+*初始化触摸屏芯片
+*in		none
 *******************************************/
 void tsm12_init(void)
 {
@@ -171,12 +178,14 @@ void tsm12_init(void)
 	set_data = 0x00;
 	touch_i2c_device_write_byte(TSM12_Ch_hold2, set_data);
 #if defined(BLE_DOOR_DEBUG)
-	printf("touch button ic:tsm12 init success\r\n");
+	printf("touch button init success\r\n");
 #endif
 }
 
 /***************************************************
-*key_read(),读取键值
+*读取触摸屏键值
+*in：	none
+*out：	key_value		触摸屏的键值
 ***************************************************/
 uint8_t tsm12_key_read(void)
 {

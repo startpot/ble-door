@@ -29,19 +29,19 @@ extern time_t 		time_record_compare_t;
 
 #define OPERATE_CODE_BIT		0	//命令位，除去用户设置密码的命令
 
-//#define DOOR_OPEN_KEY			0x00
-#define	SYNC_TIME				0x80
-#define SET_PARAMS				0x81
-#define	SET_KEY_SEED			0x82
-#define	SET_MAC					0x83
-#define	SET_BLE_UUID			0x84
-#define	SET_SUPER_KEY			0x85
-#define	GET_USED_KEY			0x88
+//#define DOOR_OPEN_KEY					0x00
+#define	SYNC_TIME								0x80
+#define   SET_PARAMS							0x81
+#define	SET_KEY_SEED						0x82
+#define	SET_MAC									0x83
+#define	SET_BLE_UUID						0x84
+#define	SET_SUPER_KEY					0x85
+#define	GET_USED_KEY					0x88
 #define	GET_RECORD_NUMBER		0x89
 #define	GET_RECENT_RECORD		0x8a
 
 
-#define GET_TIME				0x86
+#define GET_TIME									0x86
 
 void operate_code_check(uint8_t *p_data, uint16_t length);
 

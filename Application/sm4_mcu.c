@@ -406,4 +406,3 @@ void sm4_crypt_cbc( struct sm4_context *ctx,
         }
     }
 }
-

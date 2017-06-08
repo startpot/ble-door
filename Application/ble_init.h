@@ -62,14 +62,14 @@ APP_TIMER_DEF(m_sec_req_timer_id);
 
 #define APP_FEATURE_NOT_SUPPORTED      	BLE_GATT_STATUS_ATTERR_APP_BEGIN + 2
 
-#define UART_TX_BUF_SIZE                256                                         /**< UART TX buffer size. */
-#define UART_RX_BUF_SIZE                256                                         /**< UART RX buffer size. */
+#define UART_TX_BUF_SIZE                512                                        /**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE                512                                         /**< UART RX buffer size. */
 
 
 extern ble_nus_t                        m_nus; /*Nordic UART Service*/
 
+extern uint8_t mac[8];//第一位：标志位，第二位：长度
 extern uint8_t device_name[DEVICE_NAME_SIZE];
-
 
 //以下3个变量是在uart service中保存的全局变量，交给operate_code_check函数去处理
 extern bool    							operate_code_setted;

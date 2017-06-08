@@ -1,4 +1,4 @@
-/***************************
+/****************************************************************************
 *	RTC芯片 IIC接口
 *--------------------------------------------------------------------------------------
 *	tm														RTC							
@@ -11,7 +11,7 @@
 *	tm_wday(int:0-6)							06H(int:0-6)		sun-sat
 *	tm_yday(0-365)
 *	tm_isdst(夏令时)
-****************************/
+****************************************************************************/
 
 #include <stdint.h>
 #include <stdio.h>
@@ -33,11 +33,12 @@ nrf_drv_twi_t m_twi_master_rtc = NRF_DRV_TWI_INSTANCE(1); //指定TWI1
 
 /***********************
 *初始化RTC芯片
+*in：	none
 ************************/
 static ret_code_t rtc_iic_init(void)
 {
 	ret_code_t ret;
-  const nrf_drv_twi_config_t config =
+	const nrf_drv_twi_config_t config =
     {
        .scl                = RTC_CHIP_IIC_SCL_PIN,
        .sda                = RTC_CHIP_IIC_SDA_PIN,
@@ -57,9 +58,12 @@ static ret_code_t rtc_iic_init(void)
     return ret;
 }
 
-/*********************
+/**********************************************************
 *RTC芯片写入1个byte
-*********************/
+*in：	address			要写入RTC芯片的地址
+			data				写入RTC芯片的数据
+*out：	ret					0成功
+**********************************************************/
 static ret_code_t rtc_i2c_device_write_byte(uint8_t address, uint8_t data)
 {
 	ret_code_t ret;
@@ -68,9 +72,13 @@ static ret_code_t rtc_i2c_device_write_byte(uint8_t address, uint8_t data)
 	return ret;
 }
 
-/***********************
+/****************************************************************
 *RTC芯片读出length个byte
-***********************/
+*in：		address				要读出的地址
+				*p_read_byte	读出数据的指针
+				length					读出数据的长度
+*out			ret						0成功
+****************************************************************/
 static ret_code_t rtc_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte, uint8_t length)
 {
 	ret_code_t ret;
@@ -91,9 +99,10 @@ static ret_code_t rtc_i2c_device_read_byte(uint8_t address, uint8_t *p_read_byte
 	return ret;
 }
 
-/******************
+/*******************************************************
 *	初始化RTC芯片
-******************/
+*in：	none
+*******************************************************/
 void rtc_init(void)
 {
 	//初始化RTC的IIC
@@ -107,19 +116,31 @@ void rtc_init(void)
 #endif
 }
 
+/*****************************************
+*hex变换为BCD
+*in：		value			要变换的hex
+*out：							变换后的BCD
+*****************************************/
 static uint8_t hex_2_bcd(uint8_t value)
 {
 	return (((value/10)<<4) | (value%10));
 }
 
+/****************************************************
+*BCD变换为hex
+*in：		value		要变换的BCD
+*out：						变换后的hex
+*****************************************************/
 static uint8_t bcd_2_hex(uint8_t value)
 {
 	return (((value & 0xf0)>>4)*10 + (value & 0x0f));
 }
 
-/******************
+/******************************************************
 *设置RTC芯片的时间
-*******************/
+*in：		*time_write			要写入的时间
+*out：		0成功
+*******************************************************/
 uint8_t	rtc_time_write(struct tm *time_write)
 {
 	
@@ -158,9 +179,11 @@ uint8_t	rtc_time_write(struct tm *time_write)
 	return 0;
 }
 
-/*********************
+/********************************************************
 *读出RTC芯片的时间
-*********************/
+*in：		*time_read			读出的时间
+*out：					0成功
+********************************************************/
 uint8_t rtc_time_read(struct tm *time_read)
 {
 	uint8_t byte_read[7];

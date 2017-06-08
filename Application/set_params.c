@@ -2,6 +2,7 @@
 #include <stdbool.h>
 
 #include "pstorage.h"
+#include "ble_gap.h"
 #include "app_error.h"
 #include "inter_flash.h"
 
@@ -11,13 +12,29 @@
 pstorage_handle_t block_id_params;
 uint8_t flash_store_params[8];
 
-uint8_t BEEP_DIDI_NUMBER;
-uint8_t LED_LIGHT_TIME;
+//对比动态密码的变量
+uint8_t SM4_challenge[4] = {0x31,0x30,0x33,0x36};
+uint8_t key_store_tmp[6];
+
+//种子的数组
+uint8_t seed[16];
+
+uint8_t 	KEY_LENGTH;
+
+uint32_t	OPEN_TIME;
 uint8_t	DOOR_OPEN_HOLD_TIME;
+uint8_t 	BEEP_DIDI_NUMBER;
+uint8_t 	LED_LIGHT_TIME;
 uint8_t	KEY_CHECK_NUMBER;
-uint8_t KEY_LENGTH;
 
 
+//与设置mac有关的变量
+ble_gap_addr_t addr;
+
+/*******************************************
+* 初始化参数
+* in：		none
+******************************************/
 void set_default_params(void)
 {
 	uint32_t err_code;
@@ -50,5 +67,13 @@ void set_default_params(void)
 		LED_LIGHT_TIME = 0x05;//灯亮起的时间
 		KEY_CHECK_NUMBER = 0x05;//密码测试次数
 	}
+#if defined(BLE_DOOR_DEBUG)
+	printf("params set:\r\n");
+	printf("moto time:%d\r\n", OPEN_TIME);
+	printf("door open time:%d\r\n", DOOR_OPEN_HOLD_TIME);
+	printf("beep  didi number:%d\r\n", BEEP_DIDI_NUMBER);
+	printf("led ligth time:%d\r\n", LED_LIGHT_TIME);
+	printf("key check number:%d\r\n", KEY_CHECK_NUMBER);
+#endif
+	
 }
-

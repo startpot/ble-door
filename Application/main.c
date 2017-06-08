@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
+
 #include "nordic_common.h"
 #include "bsp.h"
 #include "nrf.h"
@@ -50,19 +51,21 @@
 #include "sm4_mcu.h"
 #include "sm4_dpwd.h"
 
-
+/***************************
+* 动态口令算法测试程序
+***************************/
 void sm4_test(void)
 {
 	struct sm4_context sm4_ctx;
 	uint8_t output[16];
-	uint8_t key[16] = {0x01, 0x23, 0x45, 0x67, \
-					 0x89, 0xab, 0xcd, 0xef, \
-					 0xfe, 0xdc, 0xba, 0x98, \
-					 0x76, 0x54, 0x32, 0x10};
-	uint8_t data[16] = {0x01, 0x23, 0x45, 0x67, \
-					 0x89, 0xab, 0xcd, 0xef, \
-					 0xfe, 0xdc, 0xba, 0x98, \
-					 0x76, 0x54, 0x32, 0x10};
+	uint8_t key[16] = {	0x01, 0x23, 0x45, 0x67, \
+						0x89, 0xab, 0xcd, 0xef, \
+						0xfe, 0xdc, 0xba, 0x98, \
+						0x76, 0x54, 0x32, 0x10};
+	uint8_t data[16] = { 0x01, 0x23, 0x45, 0x67, \
+						 0x89, 0xab, 0xcd, 0xef, \
+						 0xfe, 0xdc, 0xba, 0x98, \
+						 0x76, 0x54, 0x32, 0x10};
 	
 	sm4_ctx.mode = SM4_ENCRYPT;
 	sm4_ctx.sk[0] = 0x00;
@@ -76,9 +79,9 @@ void sm4_test(void)
 	uint8_t DynPwd[6];
 	
 	// DPasswd
-	key[ 0] = 0x12; key[ 1] = 0x34; key[ 2] = 0x56; key[ 3] = 0x78;
-	key[ 4] = 0x90; key[ 5] = 0xab; key[ 6] = 0xcd; key[ 7] = 0xef;
-	key[ 8] = 0x12; key[ 9] = 0x34; key[10] = 0x56; key[11] = 0x78;
+	key[0] = 0x12; key[1] = 0x34; key[2] = 0x56; key[3] = 0x78;
+	key[4] = 0x90; key[5] = 0xab; key[6] = 0xcd; key[7] = 0xef;
+	key[8] = 0x12; key[9] = 0x34; key[10] = 0x56; key[11] = 0x78;
 	key[12] = 0x90; key[13] = 0xab; key[14] = 0xcd; key[15] = 0xef;
 	uint16_t Interval = 0x01;
 	uint64_t time = 0x4feab9cd;
@@ -93,9 +96,6 @@ void sm4_test(void)
 	SM4_DPasswd(key, time, Interval, counter, Challenge, DynPwd);
 }
 
-
-
-
 /*****************************
 *Application main function.
 *****************************/
@@ -107,13 +107,12 @@ int main(void)
 	//初始化UART,printf打印调试信息需要uart，所以先初始化uart
 	//uart的速率为115200尽量的快，打印出全部信息
 	uart_init();
-	//初始化内部flash
-	flash_init();
-	
 #if defined(BLE_DOOR_DEBUG)	
 	printf("***ble door controller***");
 	printf("\r\n");
 #endif
+	//初始化内部flash
+	flash_init();
 	
 	timers_init();
 	//初始化协议栈
@@ -152,9 +151,28 @@ int main(void)
 	//初始化触摸屏的中断函数
 	iic_int_buttons_init();
 	
-	
 	//动态密码的测试程序
 //	sm4_test();
+	
+	//如果配置了mac，则使用配置的mac
+	if(mac[0] =='w')
+	{
+		memset(addr.addr, 0, 6);
+		//拷贝设置的mac
+		memcpy(addr.addr, &mac[2], 6);
+		err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE,&addr);
+		if(err_code == NRF_SUCCESS)
+		{
+#if defined(BLE_DOOR_DEBUG)
+			printf(" use mac setted by user:");
+			for(int i=0; i<6;i++)
+			{
+				printf("%x ",mac[3+i]);
+			}
+	printf("\r\n");
+#endif
+		}		
+	}
 	
 	//添加配对密码
 	char *passcode = "123456";

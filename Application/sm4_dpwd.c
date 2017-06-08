@@ -1,4 +1,3 @@
-
 // SM4
 #include <stdbool.h>
 #include <stdint.h>
@@ -16,6 +15,9 @@
 
 #define  sm_word			uint32_t
 
+/***********************************
+*32位大小端变换
+************************************/
 INLINE uint32_t Reverse32(uint32_t x)
 {
 	uint32_t tmp;
@@ -26,6 +28,9 @@ INLINE uint32_t Reverse32(uint32_t x)
 	return tmp;
 }
 
+/*******************************************
+*64位大小端变换
+********************************************/
 INLINE uint64_t Reverse64(uint64_t x)
 {
 	uint32_t nTemp[3] = {0};
@@ -168,4 +173,3 @@ int SM4_DPasswd(uint8_t * pKey, uint64_t Time, uint16_t Interval, uint32_t Count
 	return DPWD_ERROR_OK;
 
 }
-
