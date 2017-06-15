@@ -170,12 +170,14 @@ uint8_t	rtc_time_write(struct tm *time_write)
 	rtc_i2c_device_write_byte(PCF85163_Years_ADDR, byte_write);
 	//使能RTC
 	rtc_i2c_device_write_byte(PCF85163_Timer_control_ADDR, 0x83);
+	/*
 #if defined(BLE_DOOR_DEBUG)
 	printf("rtc time set:%4d-%2d-%2d %2d:%2d:%2d\r\n",\
 			time_write->tm_year +1990, time_write->tm_mon + 1, \
 			time_write->tm_mday, time_write->tm_hour, \
 			time_write->tm_min, time_write->tm_sec);
 #endif
+*/
 	return 0;
 }
 
@@ -204,11 +206,13 @@ uint8_t rtc_time_read(struct tm *time_read)
 	time_read->tm_mon = bcd_2_hex(0x1f & byte_read[5]) - 1;
 	//写入年
 	time_read->tm_year = bcd_2_hex(0xff & byte_read[6]) + 10;
+	/*
 #if defined(BLE_DOOR_DEBUG)
 	printf("rtc time read:%4d-%2d-%2d %2d:%2d:%2d\r\n",\
 			time_read->tm_year +1990, time_read->tm_mon + 1, \
 			time_read->tm_mday, time_read->tm_hour, \
 			time_read->tm_min, time_read->tm_sec);
 #endif
+*/
 	return 0;
 }

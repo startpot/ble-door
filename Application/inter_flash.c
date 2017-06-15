@@ -107,28 +107,46 @@ void flash_init(void)
 	err_code = pstorage_load(device_name,&block_id_device_name,DEVICE_NAME_SIZE,0);
 	APP_ERROR_CHECK(err_code);
 	
-	//写钥匙记录条数为0
+	//如果钥匙记录为全f，则写钥匙记录条数为0
 	err_code = pstorage_block_identifier_get(&block_id_flash_store, \
-						(pstorage_size_t)KEY_STORE_OFFSET, &block_id_flash_store);
+						(pstorage_size_t)KEY_STORE_OFFSET, &block_id_key_store);
 	APP_ERROR_CHECK(err_code);
-	key_store_length = 0x00000000;
-	err_code = pstorage_clear(&block_id_flash_store,BLOCK_STORE_SIZE);
-	APP_ERROR_CHECK(err_code);
-	err_code = pstorage_store(&block_id_flash_store, (uint8_t *)&key_store_length, 4, 0);
-	APP_ERROR_CHECK(err_code);
+	err_code = pstorage_load((uint8_t *)&key_store_length, &block_id_key_store, 4, 0);
+	if(err_code == NRF_SUCCESS)
+	{
+	if(key_store_length == 0xffffffff)
+	{
+		key_store_length = 0x0;
+		err_code = pstorage_clear(&block_id_key_store,BLOCK_STORE_SIZE);
+		APP_ERROR_CHECK(err_code);
+		err_code = pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
+		APP_ERROR_CHECK(err_code);
+	}
 #if defined(BLE_DOOR_DEBUG)
 	printf("key_store length set %d\r\n", key_store_length);
 #endif
-	//写开门记录条数为0
-	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_record);
-	record_length = 0x0;
-	pstorage_clear(&block_id_record,BLOCK_STORE_SIZE);
-	pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
+	}
+	//如果开门记录的条数为全f，写开门记录条数为0
+	err_code = pstorage_block_identifier_get(&block_id_flash_store, \
+						(pstorage_size_t)RECORD_OFFSET, &block_id_record);
+	APP_ERROR_CHECK(err_code);
+	err_code = pstorage_load((uint8_t *)&record_length, &block_id_record, 4, 0);
+	if(err_code == NRF_SUCCESS)
+	{
+	if(record_length == 0xffffffff)
+	{
+		record_length = 0x0;
+		err_code = pstorage_clear(&block_id_record,BLOCK_STORE_SIZE);
+		APP_ERROR_CHECK(err_code);
+		err_code = pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
+		APP_ERROR_CHECK(err_code);
+	}
 #if defined(BLE_DOOR_DEBUG)
 	printf("record length set %d\r\n", record_length);
 	
 	printf("flash init success \r\n");
 #endif
+	}
 }
 
 /**********************************************************
@@ -141,10 +159,10 @@ void flash_init(void)
 void inter_flash_write(uint8_t *p_data, uint32_t data_len,\
 					   pstorage_size_t block_id_offset, pstorage_handle_t *block_id_write)
 {	
-	int len_makeup;//除以4后多出的byte数
-	len_makeup = (4 - (data_len%4))%4;
+//	int len_makeup;//除以4后多出的byte数
+//	len_makeup = (4 - (data_len%4))%4;
 	
-	data_len = data_len + len_makeup;
+//	data_len = data_len + len_makeup;
 	
 	//获取需要存储的位置
 	pstorage_block_identifier_get(block_id_write, block_id_offset, &block_id_dest);
@@ -166,10 +184,10 @@ void inter_flash_write(uint8_t *p_data, uint32_t data_len,\
 void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
 					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read)
 {
-	int len_makeup;//除以4后多出的byte数
-	len_makeup = (4 - (data_len%4))%4;
+//	int len_makeup;//除以4后多出的byte数
+//	len_makeup = (4 - (data_len%4))%4;
 	
-	data_len = data_len + len_makeup;
+//	data_len = data_len + len_makeup;
 	
 	pstorage_block_identifier_get(block_id_read, (pstorage_size_t)block_id_offset, &block_id_dest);
 	pstorage_load(p_data, &block_id_dest, (pstorage_size_t)data_len, 0);
@@ -185,9 +203,9 @@ void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
 ************************************************************************/
 void write_super_key(uint8_t *p_data, uint32_t data_len)
 {	
-	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)SPUER_KEY_OFFSET, &block_id_dest);
-	pstorage_clear(&block_id_dest,BLOCK_STORE_SIZE);
-	pstorage_store(&block_id_dest, p_data, data_len, 0);
+	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)SPUER_KEY_OFFSET, &block_id_super_key);
+	pstorage_clear(&block_id_super_key,BLOCK_STORE_SIZE);
+	pstorage_store(&block_id_super_key, p_data, data_len, 0);
 #if defined(BLE_DOOR_DEBUG)
 	printf("super key write:");
 	for(int i=0; i<SUPER_KEY_LENGTH; i++)
@@ -205,20 +223,20 @@ void write_super_key(uint8_t *p_data, uint32_t data_len)
 void key_store_write(struct key_store_struct *key_store_input)
 {
 	//写记录条数
-	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_dest);
-	pstorage_load((uint8_t *)&key_store_length, &block_id_dest, 4, 0);
+	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_key_store);
+	pstorage_load((uint8_t *)&key_store_length, &block_id_key_store, 4, 0);
 	if(key_store_length > KEY_STORE_NUMBER)
 	{//达到记录上限
 		key_store_length = 0x1;
-		pstorage_clear(&block_id_dest, 4);
-		pstorage_store(&block_id_dest, (uint8_t *)&key_store_length, 4, 0);
+		pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
+		pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
 		key_store_full = true;
 	}
 	else
 	{//未达到记录上限
 		key_store_length++;
-		pstorage_clear(&block_id_dest, 4);
-		pstorage_store(&block_id_dest, (uint8_t *)&key_store_length, 4, 0);
+		pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
+		pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
 	}
 	inter_flash_write((uint8_t *)key_store_input, sizeof(struct key_store_struct), \
 						(pstorage_size_t)(KEY_STORE_OFFSET + key_store_length), &block_id_flash_store);
@@ -231,20 +249,20 @@ void key_store_write(struct key_store_struct *key_store_input)
 void record_write(struct door_open_record *open_record)
 {
 	//写记录条数
-	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_dest);
-	pstorage_load((uint8_t *)&record_length, &block_id_dest, 4, 0);
+	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_record);
+	pstorage_load((uint8_t *)&record_length, &block_id_record, 4, 0);
 	if(record_length > RECORD_NUMBER)
 	{//达到记录上限
 		record_length = 0x1;
-		pstorage_clear(&block_id_dest, 64);
-		pstorage_store(&block_id_dest, (uint8_t *)&record_length, 4, 0);	
+		pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
+		pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);	
 		record_full = true;
 	}
 	else
 	{//未达到记录上限
 		record_length++;
-		pstorage_clear(&block_id_dest, 64);
-		pstorage_store(&block_id_dest, (uint8_t *)&record_length, 4, 0);
+		pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
+		pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
 	}
 	inter_flash_write((uint8_t *)open_record, sizeof(struct door_open_record), \
 						(pstorage_size_t)(RECORD_OFFSET + record_length), &block_id_flash_store);

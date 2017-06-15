@@ -48,7 +48,8 @@ void set_default_params(void)
 	//			25(OPEN_TIME *0.1s),10(DOOR_OPEN_HOLD_TIME *0.1s),
 	//			5(BEEP_DIDI_NUMBER 次数)，5(LED_LIGHT_TIME *0.1s),
 	//			5(KEY_CHECK_NUMBER) 次数]后面补0)
-	err_code = pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)DEFAULT_PARAMS_OFFSET, &block_id_params);
+	err_code = pstorage_block_identifier_get(&block_id_flash_store, \
+								(pstorage_size_t)DEFAULT_PARAMS_OFFSET, &block_id_params);
 	APP_ERROR_CHECK(err_code);
 	pstorage_load(flash_store_params, &block_id_params, 8, 0);
 	if(flash_store_params[0] == 0x77)

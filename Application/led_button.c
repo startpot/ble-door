@@ -25,6 +25,7 @@
 #include "rtc_chip.h"
 #include "sm4_mcu.h"
 #include "sm4_dpwd.h"
+#include "my_time.h"
 
 #define APP_GPIOTE_MAX_USERS		1
 
@@ -92,8 +93,8 @@ static void write_key_expressed(void)
 {
 	if(key_input_site < KEY_NUMBER)
 	{
-	key_input[key_input_site] = key_express_value;
-	key_input_site ++;
+		key_input[key_input_site] = key_express_value;
+		key_input_site ++;
 	}
 }
 
@@ -130,12 +131,11 @@ void ble_door_open(void)
 /**************************************************************
 *检验所有按下的键值
 **************************************************************/
-
 static void check_keys(void)
 {
 	//获取按下开锁键的时间
 	rtc_time_read(&key_input_time_tm);
-	key_input_time_t = mktime(&key_input_time_tm);
+	key_input_time_t = my_mktime(&key_input_time_tm);
 		
 	//如果按键数量和设置超级密码一致
 	if(key_input_site == SUPER_KEY_LENGTH)
@@ -205,8 +205,8 @@ static void check_keys(void)
 				//对比密码是否一致
 				if(strncasecmp(key_input, (char *)&key_store_check.key_store, 6) == 0)
 				{//密码相同，看是否在有效时间内
-					if((difftime(key_input_time_t, key_store_check.key_store_time) -\
-								((time_t)key_store_check.key_use_time * 60)) > 0)
+					if((double)(my_difftime(key_input_time_t, key_store_check.key_store_time) <\
+								((double)key_store_check.key_use_time * 60)) )
 					{
 						ble_door_open();
 #if defined(BLE_DOOR_DEBUG)
@@ -341,8 +341,7 @@ static void check_key_express(char express_value)
 **************************************************************/
 void iic_int_handler(uint32_t event_pins_low_to_high, uint32_t event_pins_high_to_low)
 {
-	
-	
+
 	if (event_pins_high_to_low & (1 << TOUCH_IIC_INT_PIN))
 	{
 		//中断由高变低

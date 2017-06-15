@@ -155,7 +155,7 @@ void gap_params_init(void)
 ***************************************************************************/
 static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t length)
 {
-
+/*
 #if defined(BLE_DOOR_DEBUG)
 	//将获取的指令，通过UART发送出去，用板子的UART做BLE的nus service的调试口
 	for (uint32_t i = 0; i < length; i++)
@@ -164,7 +164,7 @@ static void nus_data_handler(ble_nus_t * p_nus, uint8_t * p_data, uint16_t lengt
 	}
 	while(app_uart_put('\n') != NRF_SUCCESS);
 #endif
-	
+*/	
 	//将获取的数据存到全局变量，供operate_code_check函数用
 	for(int i = 0; i <length; i++)
 	{

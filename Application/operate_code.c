@@ -13,11 +13,11 @@
 #include "inter_flash.h"
 #include "set_params.h"
 #include "sm4_dpwd.h"
+#include "my_time.h"
 
-uint32_t key_store_number;
 struct key_store_struct	key_store_struct_set;
 
-uint8_t data_array_store[BLE_NUS_MAX_DATA_LEN];//20位
+uint8_t data_array_send[BLE_NUS_MAX_DATA_LEN];//20位
 uint32_t data_send_length = 0;
 
 struct door_open_record door_open_record_get;
@@ -25,6 +25,11 @@ struct tm 	time_record;//读出记录的时间
 time_t 		time_record_t;//读出的时间的int
 struct tm 	time_record_compare;//要对比的时间
 time_t 		time_record_compare_t;//要对比的时间的int
+
+//与获取和设置时间相关的变量
+struct tm time_set;
+struct tm time_get;
+time_t time_get_t;
 
 
 /************************************************************
@@ -36,11 +41,8 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 {
 	uint8_t err_code;
 	uint8_t set_fail[13] = "set mac fail";
-	
-	//与获取和设置时间相关的变量
-	struct tm time_set;
-	struct tm time_get;
-	time_t time_get_t;
+	uint8_t no_seed[8] = "no seed";
+	uint8_t no_record[10] = "no record";
 	
 	switch(p_data[0])
 	{
@@ -60,11 +62,11 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			err_code = rtc_time_read(&time_get);
 			if(err_code == NRF_SUCCESS)
 			{
-				time_get_t = mktime(&time_get);
+				time_get_t = my_mktime(&time_get);
 			}
 		
 			//获取种子
-			inter_flash_read(flash_read_data, 32, SEED_OFFSET, &block_id_flash_store);
+			inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, SEED_OFFSET, &block_id_flash_store);
 			memset(seed, 0, 16);
 			if(flash_read_data[0] == 0x77)
 			{//设置了种子
@@ -134,9 +136,9 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 					time_get_t = time_get_t - 60;
 				}
 			}
-
-		break;
 		}
+		break;
+		
 		case SYNC_TIME://同步时间
 		//是对时命令,[year0][year1][mon][day][hour][min][sec]
 		time_set.tm_sec = (int)p_data[7];
@@ -157,18 +159,47 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 		break;
 		
 		case GET_TIME://获取时间
+		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
 		err_code = rtc_time_read(&time_get);
 		if(err_code == NRF_SUCCESS)
 		{
-			data_array_store[0] = nus_data_array[0] + 0x40;
-			data_array_store[1] = (uint8_t)((time_get.tm_year + 1990)>>8);
-			data_array_store[2] = (uint8_t)(time_get.tm_year + 1990);
-			data_array_store[3] = (uint8_t)time_get.tm_mon;
-			data_array_store[4] = (uint8_t)time_get.tm_mday;
-			data_array_store[5] = (uint8_t)time_get.tm_hour;
-			data_array_store[6] = (uint8_t)time_get.tm_min;
-			data_array_store[7] = (uint8_t)time_get.tm_sec;
-			ble_nus_string_send(&m_nus, data_array_store, 8);
+			data_array_send[0] = nus_data_array[0] + 0x40;
+			data_array_send[1] = (uint8_t)((time_get.tm_year + 1990)>>8);
+			data_array_send[2] = (uint8_t)(time_get.tm_year + 1990);
+			data_array_send[3] = (uint8_t)time_get.tm_mon;
+			data_array_send[4] = (uint8_t)time_get.tm_mday;
+			data_array_send[5] = (uint8_t)time_get.tm_hour;
+			data_array_send[6] = (uint8_t)time_get.tm_min;
+			data_array_send[7] = (uint8_t)time_get.tm_sec;
+			ble_nus_string_send(&m_nus, data_array_send, 8);
+		}
+		break;
+		
+		case GET_KEY_NOW://获取现在的动态密码
+		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
+		err_code = rtc_time_read(&time_get);
+		if(err_code == NRF_SUCCESS)
+		{
+			//将时间变换为64位
+			time_get_t = my_mktime(&time_get);
+			//获取种子
+			inter_flash_read(flash_read_data, 32, SEED_OFFSET, &block_id_flash_store);
+			memset(seed, 0, 16);
+			if(flash_read_data[0] == 0x77)
+			{//设置了种子
+				//获取种子
+				memcpy(seed, &flash_read_data[1], 16);
+				//计算动态密码
+				SM4_DPasswd(seed, time_get_t, SM4_INTERVAL, SM4_COUNTER, SM4_challenge, key_store_tmp);
+				//整合返回包
+				data_array_send[0] = nus_data_array[0] + 0x40;
+				memcpy(&data_array_send[1], &key_store_tmp, 6);
+				ble_nus_string_send(&m_nus, data_array_send, 7);
+			}
+			else
+			{//无种子，则发送no seed
+				ble_nus_string_send(&m_nus, no_seed, strlen((char *)no_seed));
+			}	
 		}
 		break;
 		
@@ -238,12 +269,12 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 		else
 		{
 			//向手机发送失败信息"set mac fail"
-			ble_nus_string_send(&m_nus, set_fail, 13);
+			ble_nus_string_send(&m_nus, set_fail, strlen((char *)set_fail));
 		}
 		break;
 		
 		case SET_SUPER_KEY://设置管理员密码
-		memset(flash_write_data, 0, BLOCK_STORE_SIZE*sizeof(uint8_t));
+		memset(flash_write_data, 0, BLOCK_STORE_SIZE);
 		memcpy(&flash_write_data[1],&p_data[1], SUPER_KEY_LENGTH);
 		flash_write_data[0] = 0x77;//'w'
 		//超级密码就12位，取写入数据前面16位(16>(1+12))
@@ -251,35 +282,44 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 		break;
 		
 		case GET_USED_KEY://查询有效密码
+		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
 		//获取密码的数量，小端字节
-		inter_flash_read((uint8_t *)&key_store_number, 4, KEY_STORE_OFFSET, &block_id_flash_store);
+		inter_flash_read((uint8_t *)&key_store_length, 4, KEY_STORE_OFFSET, &block_id_flash_store);
 
-		data_array_store[0] = p_data[0] + 0x40;
-		data_array_store[1] = (uint8_t)key_store_number;
-		
-		for(int i=0; i<key_store_number; i++)
+		if((uint32_t)key_store_length >0)
 		{
-			data_array_store[2] = (uint8_t)i;
-			inter_flash_read(&data_array_store[3], sizeof(struct key_store_struct),\
+			data_array_send[0] = p_data[0] + 0x40;
+			data_array_send[1] = (uint8_t)key_store_length;
+		
+			for(int i=0; i<data_array_send[1]; i++)
+			{
+				data_array_send[2] = (uint8_t)i;
+				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
 							 (KEY_STORE_OFFSET+1+i), &block_id_flash_store);
-			ble_nus_string_send(&m_nus, data_array_store, sizeof(struct key_store_struct)+3);
+				memcpy(&data_array_send[3], flash_read_data, sizeof(struct key_store_struct));
+				ble_nus_string_send(&m_nus, data_array_send, sizeof(struct key_store_struct)+3);
+			}
+		}
+		else
+		{
+			data_array_send[0] = p_data[0] + 0x40;
+			data_array_send[1] = (uint8_t)key_store_length;
+			ble_nus_string_send(&m_nus, data_array_send, 2);
 		}
 		break;
-		case GET_RECORD_NUMBER://查询记录数量
+		
+		case GET_RECORD_NUMBER://查询开门记录数量
+		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
 		//读取记录的数量,小端字节
 		inter_flash_read((uint8_t *)&record_length, 4, RECORD_OFFSET, &block_id_flash_store);
-		memcpy(&data_array_store[1], (uint8_t *)&record_length, 4);
-		//app也是小端
-/*		data_array_store[1] = tmp[3];
-		data_array_store[2] = tmp[2];
-		data_array_store[3] = tmp[1];
-		data_array_store[4] = tmp[0];
-	*/	
-		data_array_store[0] = p_data[0] + 0x40;
-		ble_nus_string_send(&m_nus, data_array_store, 5);
+		memcpy(&data_array_send[1], (uint8_t *)&record_length, 4);
+		
+		data_array_send[0] = p_data[0] + 0x40;
+		ble_nus_string_send(&m_nus, data_array_send, 5);
 		break;
 		
 		case GET_RECENT_RECORD://查询指定日期后的记录
+		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
 		time_record_compare.tm_sec = p_data[7];
 		time_record_compare.tm_min = p_data[6];
 		time_record_compare.tm_hour = p_data[5];
@@ -287,27 +327,36 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 		time_record_compare.tm_mon = p_data[3];
 		time_record_compare.tm_year = (((int)p_data[1])<<8 | (int)p_data[2]);
 		//计算秒数
-		time_record_compare_t = mktime(&time_record_compare);
+		time_record_compare_t = my_mktime(&time_record_compare);
 		//获取记录的数量,小端字节
 		inter_flash_read((uint8_t *)&record_length, 4, RECORD_OFFSET, &block_id_flash_store);
 		
-		for(int i=0; i<record_length; i++)
+		if(record_length >0)
 		{
-			//读出记录
-			inter_flash_read((uint8_t *)&door_open_record_get, 12, (RECORD_OFFSET+1+i), &block_id_flash_store);
-			//对比时间
-			if(difftime(door_open_record_get.door_open_time, time_record_compare_t)>0)
+			for(int i=0; i<record_length; i++)
 			{
-				data_array_store[0] = p_data[0] + 0x40;
-				data_array_store[1] = i;
-				memcpy(&data_array_store[2], &door_open_record_get, 12);
-				ble_nus_string_send(&m_nus, data_array_store, 14);
+				//读出记录
+				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
+								(RECORD_OFFSET+1+i), &block_id_flash_store);
+				memcpy(&door_open_record_get, flash_read_data, sizeof(struct door_open_record));
+				//对比时间
+				if(my_difftime(door_open_record_get.door_open_time, time_record_compare_t)>0)
+				{
+					data_array_send[0] = p_data[0] + 0x40;
+					data_array_send[1] = i;
+					memcpy(&data_array_send[2], &door_open_record_get, sizeof(struct door_open_record));
+					ble_nus_string_send(&m_nus, data_array_send, sizeof(struct door_open_record)+2);
+				}
 			}
 		}
+		else
+		{//无记录，发送no record
+			ble_nus_string_send(&m_nus, no_record, strlen((char *)no_record));
+		}
 		break;
+		
 		default:
 		
 		break;
 	}	
-	
 }
