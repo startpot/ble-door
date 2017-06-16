@@ -104,29 +104,29 @@ int main(void)
 {
 	uint32_t err_code;
 	bool erase_bonds;
-//	time_t time_set_t;
 	
 	//初始化UART,printf打印调试信息需要uart，所以先初始化uart
 	//uart的速率为115200尽量的快，打印出全部信息
 	uart_init();
+	
 #if defined(BLE_DOOR_DEBUG)	
 	printf("***ble door controller***");
 	printf("\r\n");
 #endif
-
-
 	
 	timers_init();
 	//初始化协议栈
 	ble_stack_init();
+	//device_manager_init,启动配对过程，并且初始化内部flash
 	device_manager_init(erase_bonds);
+	//初始化内部flash，和各个存储变量，紧跟在device_manager_init后面，读取mac和蓝牙名称
+	flash_init();
 	gap_params_init();
 	services_init();
 	advertising_init();
 	conn_params_init();
 	
-	//初始化内部flash
-	flash_init();
+	
 	//初始化所有参数
 	set_default_params();
 	//初始化灯，拉高，灭
@@ -153,12 +153,7 @@ int main(void)
 		.tm_isdst = 1,
 	};
 	rtc_time_write(&time_set_test);
-/*	
-	time_set_t = my_mktime(&time_set_test);
-#if defined(BLE_DOOR_DEBUG)
-	printf("%d\r\n",time_set_t);
-#endif
-*/
+
 	//初始化触摸屏的中断函数
 	iic_int_buttons_init();
 	

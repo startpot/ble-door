@@ -194,7 +194,8 @@ static void check_keys(void)
 		
 		//普通密码
 		//获取普通密码的个数,小端字节
-		inter_flash_read((uint8_t *)key_store_length, 4, KEY_STORE_OFFSET, &block_id_flash_store);
+		inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, KEY_STORE_OFFSET, &block_id_flash_store);
+		memcpy(&key_store_length,flash_read_data, 4);
 		if(key_store_length >0)
 		{
 			for(int i=0; i<key_store_length; i++)

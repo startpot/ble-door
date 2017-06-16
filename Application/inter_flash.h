@@ -89,8 +89,11 @@ extern uint32_t	key_store_length;
 extern uint32_t	record_length;
 extern bool key_store_full;
 extern bool record_full;
+extern bool key_store_length_setted;
+extern bool record_length_setted;
 
-extern pstorage_handle_t	block_id_dest;
+extern pstorage_handle_t	block_id_write;
+extern pstorage_handle_t	block_id_read;
 //从flash中读出的数据
 extern uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 extern uint8_t	flash_read_data[BLOCK_STORE_SIZE];
@@ -98,9 +101,9 @@ extern uint8_t	flash_read_data[BLOCK_STORE_SIZE];
 
 void flash_init(void);
 void inter_flash_write(uint8_t *p_data, uint32_t data_len, \
-					   pstorage_size_t block_id_offset, pstorage_handle_t *block_id_write);
+					   pstorage_size_t block_id_offset, pstorage_handle_t *block_id_write_source);
 void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
-					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read);
+					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read_source);
 
 void write_super_key(uint8_t *p_data, uint32_t data_len);
 void key_store_write(struct key_store_struct *key_store_input);

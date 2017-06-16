@@ -468,13 +468,13 @@ static uint32_t device_manager_evt_handler(dm_handle_t const * p_handle,
                                            dm_event_t const  * p_event,
                                            ret_code_t        event_result)
 {
-    uint32_t err_code = NRF_SUCCESS;
+    uint32_t err_code;
 
-    m_dm_handle = *p_handle;
     APP_ERROR_CHECK(event_result);
     switch (p_event->event_id)
     {
         case DM_EVT_CONNECTION:
+			m_dm_handle = (*p_handle);
             // Start Security Request timer.
     //        if (m_dm_handle.device_id != DM_INVALID_ID)
             {
@@ -483,7 +483,7 @@ static uint32_t device_manager_evt_handler(dm_handle_t const * p_handle,
             }
             break;
 		case DM_EVT_DISCONNECTION:
-			//dm_device_delete_all(&m_dm_handle);
+		//	dm_device_delete_all(&m_app_handle);
 			break;
 		case DM_EVT_SECURITY_SETUP:
 			

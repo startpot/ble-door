@@ -26,7 +26,11 @@ uint32_t	record_length;
 bool key_store_full;
 bool record_full;
 
-pstorage_handle_t	block_id_dest;
+bool key_store_length_setted;
+bool record_length_setted;
+
+pstorage_handle_t	block_id_write;
+pstorage_handle_t	block_id_read;
 uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 uint8_t	flash_read_data[BLOCK_STORE_SIZE];
 
@@ -77,7 +81,12 @@ void flash_init(void)
 {
 	uint32_t err_code;
 	
-	pstorage_init(); //初始化flash操作
+	//初始化标志量
+	key_store_length_setted =false;
+	record_length_setted = false;
+	
+	
+	//	pstorage_init(); //初始化flash操作,在device_manager_init中初始化了，这里就不用了
 	
 	//初始化key_store的空间
 	pstorage_module_param_t module_param_key_store;
@@ -92,14 +101,14 @@ void flash_init(void)
 	printf("it has %i blocks and block size is %i \r\n",\
 			module_param_key_store.block_count, module_param_key_store.block_size);
 #endif
-	
+
 	//取设置的mac
 	err_code =pstorage_block_identifier_get(&block_id_flash_store, \
 						(pstorage_size_t)MAC_OFFSET, &block_id_mac);
 	APP_ERROR_CHECK(err_code);
 	err_code = pstorage_load(mac, &block_id_mac, 8, 0);
 	APP_ERROR_CHECK(err_code);
-	
+
 	//取设置的device_name
 	err_code =pstorage_block_identifier_get(&block_id_flash_store, \
 						(pstorage_size_t)DEVICE_NAME_OFFSET, &block_id_device_name);
@@ -122,6 +131,7 @@ void flash_init(void)
 		err_code = pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
 		APP_ERROR_CHECK(err_code);
 	}
+	key_store_length_setted =true;
 #if defined(BLE_DOOR_DEBUG)
 	printf("key_store length set %d\r\n", key_store_length);
 #endif
@@ -141,12 +151,18 @@ void flash_init(void)
 		err_code = pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
 		APP_ERROR_CHECK(err_code);
 	}
+	record_length_setted = true;
 #if defined(BLE_DOOR_DEBUG)
 	printf("record length set %d\r\n", record_length);
-	
-	printf("flash init success \r\n");
 #endif
 	}
+#if defined(BLE_DOOR_DEBUG)
+	if(key_store_length_setted && record_length_setted ==true)
+	{
+	printf("flash init success \r\n");
+	}
+#endif
+
 }
 
 /**********************************************************
@@ -157,21 +173,20 @@ void flash_init(void)
 			*block_di_write		写入的block_id
 **********************************************************/
 void inter_flash_write(uint8_t *p_data, uint32_t data_len,\
-					   pstorage_size_t block_id_offset, pstorage_handle_t *block_id_write)
-{	
-//	int len_makeup;//除以4后多出的byte数
-//	len_makeup = (4 - (data_len%4))%4;
-	
-//	data_len = data_len + len_makeup;
-	
+					   pstorage_size_t block_id_offset, pstorage_handle_t *block_id_write_source)
+{		
+	uint32_t err_code;
 	//获取需要存储的位置
-	pstorage_block_identifier_get(block_id_write, block_id_offset, &block_id_dest);
+	pstorage_block_identifier_get(block_id_write_source, block_id_offset, &block_id_write);
 	//清除当前存储区域
-	pstorage_clear(&block_id_dest, BLOCK_STORE_SIZE);
-	pstorage_store(&block_id_dest, p_data, (pstorage_size_t)data_len, 0);
+	pstorage_clear(&block_id_write, BLOCK_STORE_SIZE);
+	err_code = pstorage_store(&block_id_write, p_data, (pstorage_size_t)data_len, 0);
+	if(err_code ==NRF_SUCCESS)
+	{
 #if defined(BLE_DOOR_DEBUG)
 	printf("%2d bytes store in flash offset:%i\r\n", data_len, block_id_offset);
 #endif
+	}
 }
 
 /**********************************************************
@@ -182,18 +197,17 @@ void inter_flash_write(uint8_t *p_data, uint32_t data_len,\
 			*block_di_read		写入的block_id
 **********************************************************/
 void inter_flash_read(uint8_t *p_data, uint32_t data_len, \
-					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read)
-{
-//	int len_makeup;//除以4后多出的byte数
-//	len_makeup = (4 - (data_len%4))%4;
-	
-//	data_len = data_len + len_makeup;
-	
-	pstorage_block_identifier_get(block_id_read, (pstorage_size_t)block_id_offset, &block_id_dest);
-	pstorage_load(p_data, &block_id_dest, (pstorage_size_t)data_len, 0);
+					 pstorage_size_t block_id_offset, pstorage_handle_t *block_id_read_source)
+{	
+	uint32_t err_code;
+	pstorage_block_identifier_get(block_id_read_source, (pstorage_size_t)block_id_offset, &block_id_read);
+	err_code = pstorage_load(p_data, &block_id_read, (pstorage_size_t)data_len, 0);
+	if(err_code ==NRF_SUCCESS)
+	{
 #if defined(BLE_DOOR_DEBUG)
 	printf("%2d bytes read in flash offset:%i\r\n", data_len, block_id_offset);
 #endif
+	}
 }
 
 /*************************************************************************
@@ -238,7 +252,9 @@ void key_store_write(struct key_store_struct *key_store_input)
 		pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
 		pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
 	}
-	inter_flash_write((uint8_t *)key_store_input, sizeof(struct key_store_struct), \
+	memset(flash_write_data, 0, BLOCK_STORE_SIZE);
+	memcpy(flash_write_data,key_store_input, sizeof(struct key_store_struct));
+	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE, \
 						(pstorage_size_t)(KEY_STORE_OFFSET + key_store_length), &block_id_flash_store);
 }
 
@@ -264,6 +280,8 @@ void record_write(struct door_open_record *open_record)
 		pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
 		pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
 	}
-	inter_flash_write((uint8_t *)open_record, sizeof(struct door_open_record), \
+	memset(flash_write_data, 0, BLOCK_STORE_SIZE);
+	memcpy(flash_write_data, open_record, sizeof(struct door_open_record));
+	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE,\
 						(pstorage_size_t)(RECORD_OFFSET + record_length), &block_id_flash_store);
 }
