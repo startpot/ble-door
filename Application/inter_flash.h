@@ -97,7 +97,7 @@ extern pstorage_handle_t	block_id_read;
 //从flash中读出的数据
 extern uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 extern uint8_t	flash_read_data[BLOCK_STORE_SIZE];
-
+extern uint8_t	flash_read_temp[BLOCK_STORE_SIZE];
 
 void flash_init(void);
 void inter_flash_write(uint8_t *p_data, uint32_t data_len, \

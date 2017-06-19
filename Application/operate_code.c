@@ -72,7 +72,6 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			{//设置了种子
 				//获取种子
 				memcpy(seed, &flash_read_data[1], 16);
-			}
 		
 			//对比SET_KEY_CHECK_NUMBER次设置的密码
 			for(int i=0; i<SET_KEY_CHECK_NUMBER; i++)
@@ -81,10 +80,6 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 
 				if(strncasecmp((char *)p_data, (char *)key_store_tmp, KEY_LENGTH) == 0)
 				{//设置的密码相同
-
-#if defined(BLE_DOOR_DEBUG)
-					printf("key set success\r\n");
-#endif
 
 					//组织密码结构体
 					memset(&key_store_struct_set, 0 , sizeof(struct key_store_struct));
@@ -98,45 +93,23 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 					memcpy(&key_store_struct_set.key_vesion, &p_data[9], 1);
 					//写存入时间
 					memcpy(&key_store_struct_set.key_store_time, &time_get_t, sizeof(time_t));
-				
-					//根据控制字，选择是否清除以前的钥匙，0x1则清除，0x0不清除
-					if((key_store_struct_set.control_bits &0x1) ==0x1)
-					{
-						//设置钥匙记录为0
-						err_code = pstorage_block_identifier_get(&block_id_flash_store, \
-									(pstorage_size_t)KEY_STORE_OFFSET, &block_id_flash_store);
-						APP_ERROR_CHECK(err_code);
-						key_store_length = 0x00000000;
-						err_code = pstorage_clear(&block_id_flash_store,BLOCK_STORE_SIZE);
-						APP_ERROR_CHECK(err_code);
-						err_code = pstorage_store(&block_id_flash_store, (uint8_t *)&key_store_length, 4, 0);
-						APP_ERROR_CHECK(err_code);
+	
+					//直接将钥匙记录到flash
+					key_store_write(&key_store_struct_set);
 #if defined(BLE_DOOR_DEBUG)
-						printf("key_store length set %d\r\n", key_store_length);
+					printf("key set success\r\n");
 #endif
-						//将钥匙记录到flash
-						key_store_write(&key_store_struct_set);
-					}
-					else
-					{
-						//直接将钥匙记录到flash
-						key_store_write(&key_store_struct_set);
-					}
-#if defined(BLE_DOOR_DEBUG)
-						printf("key set  success:");
-						for(int j=0; j<KEY_LENGTH; j++)
-						{
-							printf("%c",key_store_struct_set.key_store[j]);
-						}
-						printf("\r\n");
-#endif
+					goto key_set_exit;
 				}
 				else
 				{
 					time_get_t = time_get_t - 60;
 				}
+
 			}
 		}
+	}
+key_set_exit:
 		break;
 		
 		case SYNC_TIME://同步时间
@@ -148,7 +121,8 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			time_set.tm_hour = (int)p_data[5];
 			time_set.tm_mday = (int)p_data[4];
 			time_set.tm_mon = (int)p_data[3];
-			time_set.tm_year = (int)((((int)p_data[1])<<8 | (int)p_data[2]) - 1990);
+			//年小端
+			time_set.tm_year = (int)((((int)p_data[2])<<8 | (int)p_data[1]) - 1990);
 		
 			//将时间写入RTC
 			err_code =  rtc_time_write(&time_set);
@@ -168,8 +142,9 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			if(err_code == NRF_SUCCESS)
 			{
 				data_array_send[0] = nus_data_array[0] + 0x40;
-				data_array_send[1] = (uint8_t)((time_get.tm_year + 1990)>>8);
-				data_array_send[2] = (uint8_t)(time_get.tm_year + 1990);
+				//年是小端
+				data_array_send[2] = (uint8_t)((time_get.tm_year + 1990)>>8);
+				data_array_send[1] = (uint8_t)(time_get.tm_year + 1990);
 				data_array_send[3] = (uint8_t)time_get.tm_mon;
 				data_array_send[4] = (uint8_t)time_get.tm_mday;
 				data_array_send[5] = (uint8_t)time_get.tm_hour;
@@ -349,7 +324,7 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			time_record_compare.tm_hour = p_data[5];
 			time_record_compare.tm_mday = p_data[4];
 			time_record_compare.tm_mon = p_data[3];
-			time_record_compare.tm_year = (((int)p_data[1])<<8 | (int)p_data[2]);
+			time_record_compare.tm_year = (int)((((int)p_data[2])<<8 | (int)p_data[1]) -1990);
 			//计算秒数
 			time_record_compare_t = my_mktime(&time_record_compare);
 			//获取记录的数量,小端字节
@@ -359,6 +334,7 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 		
 			if(record_length >0)
 			{
+				data_array_send[1] = (uint8_t)record_length;
 				for(int i=0; i<record_length; i++)
 				{
 					//读出记录
@@ -369,9 +345,9 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 					if(my_difftime(door_open_record_get.door_open_time, time_record_compare_t)>0)
 					{
 						data_array_send[0] = p_data[0] + 0x40;
-						data_array_send[1] = i;
-						memcpy(&data_array_send[2], &door_open_record_get, sizeof(struct door_open_record));
-						ble_nus_string_send(&m_nus, data_array_send, sizeof(struct door_open_record)+2);
+						data_array_send[2] = i;
+						memcpy(&data_array_send[3], &door_open_record_get, sizeof(struct door_open_record));
+						ble_nus_string_send(&m_nus, data_array_send, sizeof(struct door_open_record)+3);
 					}
 				}
 			}

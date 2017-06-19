@@ -7,6 +7,7 @@
 
 #include "inter_flash.h"
 #include "ble_init.h"
+#include "set_params.h"
 
 char	super_key[SUPER_KEY_LENGTH];
 
@@ -33,6 +34,7 @@ pstorage_handle_t	block_id_write;
 pstorage_handle_t	block_id_read;
 uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 uint8_t	flash_read_data[BLOCK_STORE_SIZE];
+uint8_t	flash_read_temp[BLOCK_STORE_SIZE];
 
 /************************************************************************
 *flash操作的回调函数
@@ -239,23 +241,31 @@ void key_store_write(struct key_store_struct *key_store_input)
 	//写记录条数
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_key_store);
 	pstorage_load((uint8_t *)&key_store_length, &block_id_key_store, 4, 0);
-	if(key_store_length > KEY_STORE_NUMBER)
-	{//达到记录上限
+	if((key_store_length > KEY_STORE_NUMBER) ||((key_store_input->control_bits&0x01) ==0x01))
+	{//达到记录上限,或者control_bit=0x01
 		key_store_length = 0x1;
-		pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
-		pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
 		key_store_full = true;
 	}
 	else
 	{//未达到记录上限
 		key_store_length++;
-		pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
-		pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
 	}
+	pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
+	pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, 4, 0);
+	
 	memset(flash_write_data, 0, BLOCK_STORE_SIZE);
 	memcpy(flash_write_data,key_store_input, sizeof(struct key_store_struct));
 	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE, \
 						(pstorage_size_t)(KEY_STORE_OFFSET + key_store_length), &block_id_flash_store);
+	
+#if defined(BLE_DOOR_DEBUG)
+						printf("key set  success:");
+						for(int j=0; j<KEY_LENGTH; j++)
+						{
+							printf("%c",key_store_input->key_store[j]);
+						}
+						printf("\r\n");
+#endif
 }
 
 /********************************************************************
@@ -270,16 +280,15 @@ void record_write(struct door_open_record *open_record)
 	if(record_length > RECORD_NUMBER)
 	{//达到记录上限
 		record_length = 0x1;
-		pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
-		pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);	
 		record_full = true;
 	}
 	else
 	{//未达到记录上限
-		record_length++;
-		pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
-		pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);
+		record_length++;	
 	}
+	pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
+	pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);		
+	
 	memset(flash_write_data, 0, BLOCK_STORE_SIZE);
 	memcpy(flash_write_data, open_record, sizeof(struct door_open_record));
 	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE,\
