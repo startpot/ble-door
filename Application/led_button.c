@@ -26,6 +26,7 @@
 #include "sm4_mcu.h"
 #include "sm4_dpwd.h"
 #include "my_time.h"
+#include "operate_code.h"
 
 #define APP_GPIOTE_MAX_USERS		1
 
@@ -195,10 +196,19 @@ static void check_keys(void)
 		//普通密码
 		//获取普通密码的个数,小端字节
 		inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, KEY_STORE_OFFSET, &block_id_flash_store);
-		memcpy(&key_store_length,flash_read_data, 4);
-		if(key_store_length >0)
+		memcpy(&key_store_length,flash_read_data, sizeof(struct key_store_length_struct));
+		
+		if(key_store_length.key_store_full ==0x1)
 		{
-			for(int i=0; i<key_store_length; i++)
+			key_store_length_get = KEY_STORE_NUMBER;
+		}
+		else if(key_store_length.key_store_length >0)
+		{
+			key_store_length_get = key_store_length.key_store_length;
+		}
+		if(key_store_length_get >0)
+		{
+			for(int i=0; i<key_store_length_get; i++)
 			{
 				//获取存储的密码
 				inter_flash_read((uint8_t *)&key_store_check, sizeof(struct key_store_struct), \

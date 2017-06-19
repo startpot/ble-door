@@ -31,6 +31,8 @@ struct tm time_set;
 struct tm time_get;
 time_t time_get_t;
 
+uint32_t record_length_get;
+uint32_t key_store_length_get;
 
 /************************************************************
 *对nus servvice传来的数据进行分析
@@ -278,14 +280,28 @@ key_set_exit:
 		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
 		//获取密码的数量，小端字节
 		inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, KEY_STORE_OFFSET, &block_id_flash_store);
-		memcpy(&key_store_length, flash_read_data, 4);
+		memcpy(&key_store_length, flash_read_data, sizeof(struct key_store_length_struct));
 
-		if((uint32_t)key_store_length >0 &&key_store_length != 0xffffffff)
+		if( key_store_length.key_store_full ==0x1 )
+		{//记录满
+			data_array_send[0] = p_data[0] + 0x40;
+			data_array_send[1] = (uint8_t)KEY_STORE_NUMBER;
+		
+			for(int i=0; i<KEY_STORE_NUMBER; i++)
+			{
+				data_array_send[2] = (uint8_t)i;
+				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
+							 (KEY_STORE_OFFSET+1+i), &block_id_flash_store);
+				memcpy(&data_array_send[3], flash_read_data, sizeof(struct key_store_struct));
+				ble_nus_string_send(&m_nus, data_array_send, sizeof(struct key_store_struct)+3);
+			}
+		}
+		else if(key_store_length.key_store_length >0 &&key_store_length.key_store_full ==0x0)
 		{
 			data_array_send[0] = p_data[0] + 0x40;
-			data_array_send[1] = (uint8_t)key_store_length;
+			data_array_send[1] = (uint8_t)key_store_length.key_store_length;
 		
-			for(int i=0; i<data_array_send[1]; i++)
+			for(int i=0; i<key_store_length.key_store_length; i++)
 			{
 				data_array_send[2] = (uint8_t)i;
 				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
@@ -297,7 +313,7 @@ key_set_exit:
 		else
 		{
 			data_array_send[0] = p_data[0] + 0x40;
-			data_array_send[1] = 0;
+			data_array_send[1] = 0x0;
 			ble_nus_string_send(&m_nus, data_array_send, 2);
 		}
 		break;
@@ -308,10 +324,19 @@ key_set_exit:
 		memset(data_array_send, 0, BLE_NUS_MAX_DATA_LEN);
 		//读取记录的数量,小端字节
 		inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, RECORD_OFFSET, &block_id_flash_store);
-		memcpy(&record_length,flash_read_data, 4);
-		memcpy(&data_array_send[1],  &record_length, 4);
+		memcpy(&record_length,flash_read_data, sizeof(struct record_length_struct));
 		
 		data_array_send[0] = p_data[0] + 0x40;
+		if(record_length.record_full ==0x1)
+		{//记录满
+			record_length_get = RECORD_NUMBER;
+			memcpy(&data_array_send[1], &record_length_get,4);
+		}
+		else
+		{
+		memcpy(&data_array_send[1], &record_length.record_length,4);
+		}
+		//发送应答包
 		ble_nus_string_send(&m_nus, data_array_send, 5);
 		break;
 		
@@ -330,12 +355,31 @@ key_set_exit:
 			//获取记录的数量,小端字节
 			//读取记录的数量,小端字节
 			inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, RECORD_OFFSET, &block_id_flash_store);
-			memcpy(&record_length,flash_read_data, 4);
+			memcpy(&record_length,flash_read_data, sizeof(struct record_length_struct));
 		
-			if(record_length >0)
+			if(record_length.record_full ==0x1)
 			{
-				data_array_send[1] = (uint8_t)record_length;
-				for(int i=0; i<record_length; i++)
+				data_array_send[1] = (uint8_t)RECORD_NUMBER;
+				for(int i=0; i<RECORD_NUMBER; i++)
+				{
+					//读出记录
+					inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
+								(RECORD_OFFSET+1+i), &block_id_flash_store);
+					memcpy(&door_open_record_get, flash_read_data, sizeof(struct door_open_record));
+					//对比时间
+					if(my_difftime(door_open_record_get.door_open_time, time_record_compare_t)>0)
+					{
+						data_array_send[0] = p_data[0] + 0x40;
+						data_array_send[2] = i;
+						memcpy(&data_array_send[3], &door_open_record_get, sizeof(struct door_open_record));
+						ble_nus_string_send(&m_nus, data_array_send, sizeof(struct door_open_record)+3);
+					}
+				}
+			}
+			else if(record_length.record_length >0)
+			{
+				data_array_send[1] = (uint8_t)record_length.record_length;
+				for(int i=0; i<record_length.record_length; i++)
 				{
 					//读出记录
 					inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \

@@ -25,6 +25,8 @@ extern struct tm time_set;
 extern struct tm time_get;
 extern time_t time_get_t;
 
+extern uint32_t record_length_get;
+extern uint32_t key_store_length_get;
 
 /**********************************
 * 数据包的分析

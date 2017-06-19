@@ -16,6 +16,13 @@ struct key_store_struct
 	time_t		key_store_time;
 };
 
+//存储钥匙长度
+struct key_store_length_struct
+{
+	uint32_t key_store_length;
+	uint32_t key_store_full;
+};
+
 #define SUPER_KEY_LENGTH		12
 //超级管理员秘钥
 extern char	super_key[SUPER_KEY_LENGTH];
@@ -25,6 +32,13 @@ struct door_open_record
 {
 	uint8_t		key_store[6];
 	time_t		door_open_time;//门打开的时间s
+};
+
+//开门记录的长度
+struct record_length_struct
+{
+	uint32_t record_length;
+	uint32_t record_full;
 };
 
 /********************************************************
@@ -58,11 +72,11 @@ struct door_open_record
 #define DEVICE_NAME_NUMBER		1
 
 #define	KEY_STORE_OFFSET			DEVICE_NAME_OFFSET + DEVICE_NAME_NUMBER
-#define 	KEY_STORE_LENGTH			1
+#define 	KEY_STORE_LENGTH			1	//第一个4字节表示条数，第二个字节表示是否满
 #define	KEY_STORE_NUMBER			10
 
 #define	RECORD_OFFSET					KEY_STORE_OFFSET + KEY_STORE_LENGTH + KEY_STORE_NUMBER
-#define 	RECORD_LENGTH					1
+#define 	RECORD_LENGTH					1	//第一个4字节表示条数，第二个字节表示是否满
 #define	RECORD_NUMBER				30
 
 
@@ -85,10 +99,9 @@ extern pstorage_handle_t	block_id_device_name;
 extern pstorage_handle_t	block_id_key_store;
 extern pstorage_handle_t	block_id_record;
 
-extern uint32_t	key_store_length;
-extern uint32_t	record_length;
-extern bool key_store_full;
-extern bool record_full;
+extern struct key_store_length_struct		key_store_length;
+extern struct record_length_struct			record_length;
+
 extern bool key_store_length_setted;
 extern bool record_length_setted;
 
