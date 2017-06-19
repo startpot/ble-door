@@ -139,7 +139,7 @@ int main(void)
 	tsm12_init();
 	//初始化RTC
 	rtc_init();
-	
+/*	
 	//时间RTC测试代码,设定时间为2017.5.1. 23：59：59
 	struct tm time_set_test = 
 	{
@@ -153,7 +153,7 @@ int main(void)
 		.tm_isdst = 1,
 	};
 	rtc_time_write(&time_set_test);
-
+*/
 	//初始化触摸屏的中断函数
 	iic_int_buttons_init();
 	
