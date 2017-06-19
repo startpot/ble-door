@@ -241,7 +241,7 @@ void key_store_write(struct key_store_struct *key_store_input)
 	//写记录条数
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)KEY_STORE_OFFSET, &block_id_key_store);
 	pstorage_load((uint8_t *)&key_store_length, &block_id_key_store, 4, 0);
-	if((key_store_length > KEY_STORE_NUMBER) ||((key_store_input->control_bits&0x01) ==0x01))
+	if((key_store_length >= KEY_STORE_NUMBER) ||((key_store_input->control_bits&0x01) ==0x01))
 	{//达到记录上限,或者control_bit=0x01
 		key_store_length = 0x1;
 		key_store_full = true;
@@ -277,7 +277,7 @@ void record_write(struct door_open_record *open_record)
 	//写记录条数
 	pstorage_block_identifier_get(&block_id_flash_store, (pstorage_size_t)RECORD_OFFSET, &block_id_record);
 	pstorage_load((uint8_t *)&record_length, &block_id_record, 4, 0);
-	if(record_length > RECORD_NUMBER)
+	if(record_length >= RECORD_NUMBER)
 	{//达到记录上限
 		record_length = 0x1;
 		record_full = true;
