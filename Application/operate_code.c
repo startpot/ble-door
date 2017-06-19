@@ -281,40 +281,33 @@ key_set_exit:
 		//获取密码的数量，小端字节
 		inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, KEY_STORE_OFFSET, &block_id_flash_store);
 		memcpy(&key_store_length, flash_read_data, sizeof(struct key_store_length_struct));
-
-		if( key_store_length.key_store_full ==0x1 )
-		{//记录满
-			data_array_send[0] = p_data[0] + 0x40;
-			data_array_send[1] = (uint8_t)KEY_STORE_NUMBER;
 		
-			for(int i=0; i<KEY_STORE_NUMBER; i++)
-			{
-				data_array_send[2] = (uint8_t)i;
-				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
-							 (KEY_STORE_OFFSET+1+i), &block_id_flash_store);
-				memcpy(&data_array_send[3], flash_read_data, sizeof(struct key_store_struct));
-				ble_nus_string_send(&m_nus, data_array_send, sizeof(struct key_store_struct)+3);
-			}
-		}
-		else if(key_store_length.key_store_length >0 &&key_store_length.key_store_full ==0x0)
+		key_store_length_get = key_store_length.key_store_length;
+		
+		data_array_send[0] = p_data[0] + 0x40;
+		if(key_store_length_get ==0)
 		{
-			data_array_send[0] = p_data[0] + 0x40;
-			data_array_send[1] = (uint8_t)key_store_length.key_store_length;
-		
-			for(int i=0; i<key_store_length.key_store_length; i++)
-			{
-				data_array_send[2] = (uint8_t)i;
-				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
-							 (KEY_STORE_OFFSET+1+i), &block_id_flash_store);
-				memcpy(&data_array_send[3], flash_read_data, sizeof(struct key_store_struct));
-				ble_nus_string_send(&m_nus, data_array_send, sizeof(struct key_store_struct)+3);
-			}
+			data_array_send[1] = 0x0;
+			ble_nus_string_send(&m_nus, data_array_send, 2);
 		}
 		else
 		{
-			data_array_send[0] = p_data[0] + 0x40;
-			data_array_send[1] = 0x0;
-			ble_nus_string_send(&m_nus, data_array_send, 2);
+		if( key_store_length.key_store_full ==0x1 )
+		{//记录满
+			data_array_send[1] = (uint8_t)KEY_STORE_NUMBER;
+		}
+		else if(key_store_length.key_store_length >0 &&key_store_length.key_store_full ==0x0)
+		{
+			data_array_send[1] = (uint8_t)key_store_length.key_store_length;
+		}
+			for(int i=0; i<data_array_send[1]; i++)
+			{
+				data_array_send[2] = (uint8_t)i;
+				inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, \
+							 (KEY_STORE_OFFSET+1+i), &block_id_flash_store);
+				memcpy(&data_array_send[3], flash_read_data, sizeof(struct key_store_struct));
+				ble_nus_string_send(&m_nus, data_array_send, sizeof(struct key_store_struct)+3);
+			}
 		}
 		break;
 		
