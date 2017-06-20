@@ -33,7 +33,7 @@ extern struct door_open_record		open_record_now;
 void leds_init(void);
 void leds_on(uint8_t led_pin, uint32_t ms);
 
-void ble_door_open(void);
+int ble_door_open(void);
 void iic_int_handler(uint32_t event_pins_low_to_high, uint32_t event_pins_high_to_low);
 void iic_int_buttons_init(void);
 

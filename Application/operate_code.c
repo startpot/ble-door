@@ -14,6 +14,7 @@
 #include "set_params.h"
 #include "sm4_dpwd.h"
 #include "my_time.h"
+#include "led_button.h"
 
 struct key_store_struct	key_store_struct_set;
 
@@ -101,13 +102,20 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 #if defined(BLE_DOOR_DEBUG)
 					printf("key set success\r\n");
 #endif
+					//开门
+					ble_door_open();
+					//记录开门
+					memset(&open_record_now, 0, sizeof(struct door_open_record));
+					memcpy(&open_record_now.key_store, p_data, 6);
+					memcpy(&open_record_now.door_open_time, &time_get_t, sizeof(time_t));
+					record_write(&open_record_now);
+					
 					goto key_set_exit;
 				}
 				else
 				{
 					time_get_t = time_get_t - 60;
 				}
-
 			}
 		}
 	}
@@ -194,15 +202,17 @@ key_set_exit:
 			DOOR_OPEN_HOLD_TIME = p_data[2];
 			//设置蜂鸣器响动次数
 			BEEP_DIDI_NUMBER = p_data[3];
-			//设置亮灯时间
-			LED_LIGHT_TIME = p_data[4];
-			//设置密码的校对次数(单位 10min)
+			//设置电池电压报警
+			VOL_VALUE = p_data[4];
+			//键盘设置密码的有效时间(单位 10min)
 			KEY_CHECK_NUMBER = p_data[5];
+			//电机的转动方向
+			MOTO_DIR = p_data[6];
 		
 			memset(flash_write_data, 0, 8);
 			//写入标记'w'
 			flash_write_data[0] = 0x77;
-			memcpy(&flash_write_data[1], &p_data[1], 5);
+			memcpy(&flash_write_data[1], &p_data[1], 6);
 		
 			//将参数写入到flash
 			inter_flash_write(flash_write_data, 8, DEFAULT_PARAMS_OFFSET, &block_id_flash_store);

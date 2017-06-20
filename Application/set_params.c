@@ -20,12 +20,15 @@ uint8_t key_store_tmp[6];
 uint8_t seed[16];
 
 uint8_t 	KEY_LENGTH;
+uint8_t	KEY_CHECK_NUMBER;
+uint8_t 	LED_LIGHT_TIME;
 
 uint32_t	OPEN_TIME;
 uint8_t	DOOR_OPEN_HOLD_TIME;
 uint8_t 	BEEP_DIDI_NUMBER;
-uint8_t 	LED_LIGHT_TIME;
-uint8_t	KEY_CHECK_NUMBER;
+uint8_t	VOL_VALUE;
+uint8_t	KEY_INPUT_USE_TIME;
+uint8_t	MOTO_DIR;
 
 
 //与设置mac有关的变量
@@ -41,6 +44,8 @@ void set_default_params(void)
 
 	//设置动态密码的长度为6位ASCII
 	KEY_LENGTH = 6;
+	KEY_CHECK_NUMBER = 5;
+	LED_LIGHT_TIME = 5;
 	
 	//读出设置的参数(判读是否是后期设置的,如果不是，设定参数)
 	//初始化参数
@@ -57,16 +62,18 @@ void set_default_params(void)
 		OPEN_TIME = flash_store_params[1];//电机转动时间
 		DOOR_OPEN_HOLD_TIME = flash_store_params[2];//开门保持时间
 		BEEP_DIDI_NUMBER = flash_store_params[3];//蜂鸣器响次数
-		LED_LIGHT_TIME = flash_store_params[4];//灯亮起的时间
-		KEY_CHECK_NUMBER = flash_store_params[5];//密码测试次数
+		VOL_VALUE = flash_store_params[4];//电池电压报警
+		KEY_INPUT_USE_TIME = flash_store_params[5];//键盘密码输入密码有效时间
+		MOTO_DIR = flash_store_params[6];//电机的方向
 	}
 	else
 	{
 		OPEN_TIME = 0x19;//电机转动时间
 		DOOR_OPEN_HOLD_TIME = 0x0a;//开门保持时间
 		BEEP_DIDI_NUMBER = 0x05;//蜂鸣器响次数
-		LED_LIGHT_TIME = 0x05;//灯亮起的时间
-		KEY_CHECK_NUMBER = 0x05;//密码测试次数
+		VOL_VALUE = 0x05;//电池电压报警
+		KEY_INPUT_USE_TIME = 0x05;//键盘密码输入密码有效时间
+		MOTO_DIR = 0;
 	}
 #if defined(BLE_DOOR_DEBUG)
 	printf("params set:\r\n");

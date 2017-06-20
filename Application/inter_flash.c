@@ -32,6 +32,11 @@ pstorage_handle_t	block_id_write;
 pstorage_handle_t	block_id_read;
 uint8_t	flash_write_data[BLOCK_STORE_SIZE];
 uint8_t	flash_read_data[BLOCK_STORE_SIZE];
+uint8_t	flash_read_key_store_data[BLOCK_STORE_SIZE];
+uint8_t	flash_write_key_store_data[BLOCK_STORE_SIZE];
+uint8_t	flash_read_record_data[BLOCK_STORE_SIZE];
+uint8_t	flash_write_record_data[BLOCK_STORE_SIZE];
+
 uint8_t	flash_read_temp[BLOCK_STORE_SIZE];
 
 /************************************************************************
@@ -260,9 +265,9 @@ void key_store_write(struct key_store_struct *key_store_input)
 	pstorage_clear(&block_id_key_store, BLOCK_STORE_SIZE);
 	pstorage_store(&block_id_key_store, (uint8_t *)&key_store_length, sizeof(struct key_store_length_struct), 0);
 	
-	memset(flash_write_data, 0, BLOCK_STORE_SIZE);
-	memcpy(flash_write_data,key_store_input, sizeof(struct key_store_struct));
-	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE, \
+	memset(flash_write_key_store_data, 0, BLOCK_STORE_SIZE);
+	memcpy(flash_write_key_store_data,key_store_input, sizeof(struct key_store_struct));
+	inter_flash_write(flash_write_key_store_data, BLOCK_STORE_SIZE, \
 						(pstorage_size_t)(KEY_STORE_OFFSET + key_store_length.key_store_length), &block_id_flash_store);
 	
 #if defined(BLE_DOOR_DEBUG)
@@ -296,8 +301,8 @@ void record_write(struct door_open_record *open_record)
 	pstorage_clear(&block_id_record, BLOCK_STORE_SIZE);
 	pstorage_store(&block_id_record, (uint8_t *)&record_length, 4, 0);		
 	
-	memset(flash_write_data, 0, BLOCK_STORE_SIZE);
-	memcpy(flash_write_data, open_record, sizeof(struct door_open_record));
+	memset(flash_write_record_data, 0, BLOCK_STORE_SIZE);
+	memcpy(flash_write_record_data, open_record, sizeof(struct door_open_record));
 	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE,\
 						(pstorage_size_t)(RECORD_OFFSET + record_length.record_length), &block_id_flash_store);
 }

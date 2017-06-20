@@ -114,19 +114,38 @@ static void clear_key_expressed(void)
 /***********************************************
 *门打开函数
 ***********************************************/
-void ble_door_open(void)
+int ble_door_open(void)
 {
 	//亮绿灯
 	leds_on(LED_13, LED_LIGHT_TIME);
-	//蜂鸣器响几次(BEER_DIDI_NUMBER)
-	beep_didi(BEEP_DIDI_NUMBER);
-	//开锁
-	moto_open(OPEN_TIME);
-	nrf_delay_ms(DOOR_OPEN_HOLD_TIME * 100);
-	//蜂鸣器响
-	beep_didi(BEEP_DIDI_NUMBER);
-	//恢复moto状态
-	moto_close(OPEN_TIME);
+	if(MOTO_DIR ==0)
+	{
+		//蜂鸣器响几次(BEER_DIDI_NUMBER)
+		beep_didi(BEEP_DIDI_NUMBER);
+		//开锁
+		moto_open(OPEN_TIME);
+		nrf_delay_ms(DOOR_OPEN_HOLD_TIME * 100);
+		//蜂鸣器响
+		beep_didi(BEEP_DIDI_NUMBER);
+		//恢复moto状态
+		moto_close(OPEN_TIME);
+		goto exit;
+	}
+	else
+	{
+		//蜂鸣器响几次(BEER_DIDI_NUMBER)
+		beep_didi(BEEP_DIDI_NUMBER);
+		//开锁
+		moto_close(OPEN_TIME);
+		nrf_delay_ms(DOOR_OPEN_HOLD_TIME * 100);
+		//蜂鸣器响
+		beep_didi(BEEP_DIDI_NUMBER);
+		//恢复moto状态
+		moto_open(OPEN_TIME);
+		goto exit;
+	}
+exit:
+	return 0;
 }
 
 /**************************************************************
@@ -158,40 +177,7 @@ static void check_keys(void)
 	}
 	//普通密码
 	else if(key_input_site == KEY_LENGTH)
-	{	//6位密码，首先进行动态密码比对，再进行普通密码比对
-		
-		//动态密码，获取种子
-		inter_flash_read(flash_read_data, 32, SEED_OFFSET, &block_id_flash_store);
-		if(flash_read_data[0] == 0x77)
-		{//设置了种子
-			//获取种子16位，128bit
-			memset(seed, 0, 16);
-			memcpy(seed, &flash_read_data[1], 16);
-			
-			//计算KEY_CHECK_NUMBER *10次数
-			for(int i = 0; i<(KEY_CHECK_NUMBER * 10);i++)
-			{
-				SM4_DPasswd(seed, key_input_time_t, SM4_INTERVAL, SM4_COUNTER, SM4_challenge, key_store_tmp);
-				if(strncasecmp(key_input, (char *)key_store_tmp, KEY_LENGTH) == 0)
-				{//密码相同
-					ble_door_open();
-#if defined(BLE_DOOR_DEBUG)
-					printf("it is a dynamic key auto set\r\n");
-					printf("door open\r\n");
-#endif
-					//记录开门
-					memset(&open_record_now, 0, sizeof(struct door_open_record));
-					memcpy(&open_record_now.key_store, key_input, 6);
-					memcpy(&open_record_now.door_open_time, &key_input_time_t, 4);
-					record_write(&open_record_now);
-					goto clear_keys_input;
-				}
-				else
-				{
-					key_input_time_t = key_input_time_t - 60;
-				}						
-			}					
-		}
+	{	//6位密码，首先进行存储密码的比对，再进行动态密码比对
 		
 		//普通密码
 		//获取普通密码的个数,小端字节
@@ -229,10 +215,64 @@ static void check_keys(void)
 						memcpy(&open_record_now.key_store, key_input, 6);
 						memcpy(&open_record_now.door_open_time, &key_input_time_t, 4);
 						record_write(&open_record_now);
+						goto clear_keys_input;
 					}
 				}					
 			}
-		}		
+		}	
+		
+		//动态密码，获取种子
+		inter_flash_read(flash_read_data, 32, SEED_OFFSET, &block_id_flash_store);
+		if(flash_read_data[0] == 0x77)
+		{//设置了种子
+			//获取种子16位，128bit
+			memset(seed, 0, 16);
+			memcpy(seed, &flash_read_data[1], 16);
+			
+			//计算KEY_CHECK_NUMBER 次数
+			for(int i = 0; i<(KEY_CHECK_NUMBER );i++)
+			{
+				SM4_DPasswd(seed, key_input_time_t, SM4_INTERVAL, SM4_COUNTER, SM4_challenge, key_store_tmp);
+				if(strncasecmp(key_input, (char *)key_store_tmp, KEY_LENGTH) == 0)
+				{//密码相同
+										
+					//记录密码
+					//组织密码结构体
+					memset(&key_store_struct_set, 0 , sizeof(struct key_store_struct));
+					//写密码
+					memcpy(&key_store_struct_set.key_store, key_input, 6);
+					//写有效时间
+					key_store_struct_set.key_use_time = (uint16_t)KEY_INPUT_USE_TIME*10;
+					//写控制字
+					key_store_struct_set.control_bits = 0;
+					//写版本号
+					key_store_struct_set.key_vesion = 0;
+					//写存入时间
+					memcpy(&key_store_struct_set.key_store_time, &key_input_time_t, sizeof(time_t));
+					//直接将钥匙记录到flash
+					key_store_write(&key_store_struct_set);
+#if defined(BLE_DOOR_DEBUG)
+					printf("key set success\r\n");
+#endif
+					//开门
+					ble_door_open();
+#if defined(BLE_DOOR_DEBUG)
+					printf("it is a dynamic key auto set\r\n");
+					printf("door open\r\n");
+#endif	
+					//记录开门
+					memset(&open_record_now, 0, sizeof(struct door_open_record));
+					memcpy(&open_record_now.key_store, key_input, 6);
+					memcpy(&open_record_now.door_open_time, &key_input_time_t, sizeof(time_t));
+					record_write(&open_record_now);
+					goto clear_keys_input;
+				}
+				else
+				{
+					key_input_time_t = key_input_time_t - 60;
+				}						
+			}					
+		}	
 	}
 
 clear_keys_input:
