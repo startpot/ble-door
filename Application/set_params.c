@@ -68,7 +68,7 @@ void set_default_params(void)
 	}
 	else
 	{
-		OPEN_TIME = 0x19;//电机转动时间
+		OPEN_TIME = 0x03;//电机转动时间
 		DOOR_OPEN_HOLD_TIME = 0x0a;//开门保持时间
 		BEEP_DIDI_NUMBER = 0x05;//蜂鸣器响次数
 		VOL_VALUE = 0x05;//电池电压报警

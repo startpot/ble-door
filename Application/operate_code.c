@@ -67,6 +67,49 @@ void operate_code_check(uint8_t *p_data, uint16_t length)
 			{
 				time_get_t = my_mktime(&time_get);
 			}
+			
+			//先进行现存密码的比对
+			//获取普通密码的个数,小端字节
+		inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, KEY_STORE_OFFSET, &block_id_flash_store);
+		memcpy(&key_store_length,flash_read_data, sizeof(struct key_store_length_struct));
+		
+		if(key_store_length.key_store_full ==0x1)
+		{
+			key_store_length_get = KEY_STORE_NUMBER;
+		}
+		else if(key_store_length.key_store_length >0)
+		{
+			key_store_length_get = key_store_length.key_store_length;
+		}
+		if(key_store_length_get >0)
+		{
+			for(int i=0; i<key_store_length_get; i++)
+			{
+				//获取存储的密码
+				inter_flash_read((uint8_t *)&key_store_check, sizeof(struct key_store_struct), \
+													(KEY_STORE_OFFSET + 1 + i), &block_id_flash_store);
+				//对比密码是否一致
+				if(strncasecmp((char *)p_data, (char *)&key_store_check.key_store, 6) == 0)
+				{//密码相同，看是否在有效时间内
+					if((double)(my_difftime(time_get_t, key_store_check.key_store_time) <\
+								((double)key_store_check.key_use_time * 60)) )
+					{
+	
+						ble_door_open();
+#if defined(BLE_DOOR_DEBUG)
+						printf("it is a dynamic key user set\r\n");
+						printf("door open\r\n");
+#endif
+						//记录开门
+						memset(&open_record_now, 0, sizeof(struct door_open_record));
+						memcpy(&open_record_now.key_store, p_data, 6);
+						memcpy(&open_record_now.door_open_time, &time_get_t, 4);
+						record_write(&open_record_now);
+						goto key_set_exit;
+					}
+				}					
+			}
+		}	
 		
 			//获取种子
 			inter_flash_read(flash_read_data, BLOCK_STORE_SIZE, SEED_OFFSET, &block_id_flash_store);
@@ -194,7 +237,7 @@ key_set_exit:
 		break;
 		
 		case SET_PARAMS://设置参量
-		if(length == 0x6)//6字节
+		if(length == 0x7)//6字节
 		{
 			//设置电机转动时间
 			OPEN_TIME = p_data[1];
