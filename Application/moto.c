@@ -19,7 +19,7 @@
 #include "set_params.h"
 
 /***********************
-*初始化电机
+*初始化电�
 ************************/
 void moto_init(void)
 {
@@ -27,7 +27,7 @@ void moto_init(void)
 	nrf_gpio_cfg_output(MOTO_FI);
 	nrf_gpio_cfg_output(MOTO_BI);
 	
-	//设置为stand-by状态
+	//设置为stand-by状�
 	nrf_gpio_pin_clear(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
 #if defined(BLE_DOOR_DEBUG)
@@ -37,7 +37,7 @@ void moto_init(void)
 
 /**************************************************
 *moto向前动ms
-*in：	ms		电机向前转动的时间，单位ms
+*in�ms		电机向前转动的时间，单位ms
 **************************************************/
 static void moto_forward_ms(uint32_t ms)
 {
@@ -50,14 +50,14 @@ static void moto_forward_ms(uint32_t ms)
 			
 	//延迟5ms
 	nrf_delay_ms(5);
-	//设置为stand-by状态
+	//设置为stand-by状�
 	nrf_gpio_pin_clear(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
 }
 
 /***************************************************
 *mto向后动ms
-*in：	ms	电机向后转动的时间，单位ms
+*in�ms	电机向后转动的时间，单位ms
 ****************************************************/
 static void moto_backward_ms(uint32_t ms)
 {
@@ -70,14 +70,14 @@ static void moto_backward_ms(uint32_t ms)
 			
 	//延迟5ms
 	nrf_delay_ms(5);
-	//设置为stand-by状态
+	//设置为stand-by状�
 	nrf_gpio_pin_clear(MOTO_FI);
 	nrf_gpio_pin_clear(MOTO_BI);
 }
 
 /************************************************************
 *门打开
-*in：		open_time		门打开的时间，单位0.1s
+*in�	open_time		门打开的时间，单位0.1s
 *************************************************************/
 void moto_open(uint32_t open_time)
 {
@@ -85,8 +85,8 @@ void moto_open(uint32_t open_time)
 }
 
 /************************************************************
-*门关闭
-*in：		close_time		门关闭的时间，单位0.1s
+*门关�
+*in�	close_time		门关闭的时间，单�.1s
 *************************************************************/
 void moto_close(uint32_t close_time)
 {

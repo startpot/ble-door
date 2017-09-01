@@ -303,6 +303,6 @@ void record_write(struct door_open_record *open_record)
 	
 	memset(flash_write_record_data, 0, BLOCK_STORE_SIZE);
 	memcpy(flash_write_record_data, open_record, sizeof(struct door_open_record));
-	inter_flash_write(flash_write_data, BLOCK_STORE_SIZE,\
+	inter_flash_write(flash_write_record_data, BLOCK_STORE_SIZE,\
 						(pstorage_size_t)(RECORD_OFFSET + record_length.record_length), &block_id_flash_store);
 }
